@@ -1,0 +1,13 @@
+{
+  "fallbackType": "webview",
+  "generatorApp": "solana-mobile",
+  "host": "localhost:5173",
+  "launcherName": "Tiny Miner",
+  "name": "Tiny Miner",
+  "packageId": "dev.beeman.tinyminer",
+  "startUrl": "/",
+  "signingKey": {
+    "alias": "android",
+    "path": "android.keystore"
+  }
+}
