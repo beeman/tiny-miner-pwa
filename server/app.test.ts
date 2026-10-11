@@ -138,7 +138,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 0,
     xp: 0,
   }
@@ -165,7 +168,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
       health: hit === 4 ? 10 : 10 - (hit + 1) * 2,
       ironHealth: 20,
       ironOre: 0,
+      equippedPickaxe: 'wooden',
+      goldenPickaxeOwned: false,
       ironPickaxeOwned: false,
+      steelPickaxeOwned: false,
       revision: hit + 1,
       xp: hit === 4 ? 10 : 0,
     })
@@ -180,7 +186,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 5,
     xp: 10,
   }
@@ -196,7 +205,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 8,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -218,7 +230,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
       health: 8,
       ironHealth: 20,
       ironOre: 0,
+      equippedPickaxe: 'wooden',
+      goldenPickaxeOwned: false,
       ironPickaxeOwned: false,
+      steelPickaxeOwned: false,
       revision: 6,
       xp: 10,
     })
@@ -237,7 +252,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 8,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 11,
     xp: 20,
   }
@@ -253,7 +271,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 8,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -273,7 +294,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 2,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 14,
     xp: 20,
   }
@@ -294,7 +318,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 15,
     xp: 30,
   })
@@ -312,7 +339,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 15,
     xp: 30,
   })
@@ -327,7 +357,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     health: 8,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -361,7 +394,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 5,
     xp: 10,
   }
@@ -384,7 +420,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 6,
     xp: 10,
   }
@@ -416,7 +455,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
       health: 10,
       ironHealth: 20,
       ironOre: 0,
+      equippedPickaxe: 'wooden',
+      goldenPickaxeOwned: false,
       ironPickaxeOwned: false,
+      steelPickaxeOwned: false,
       revision: 12,
       xp: 20,
     },
@@ -430,7 +472,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
       health: 10,
       ironHealth: 20,
       ironOre: 0,
+      equippedPickaxe: 'wooden',
+      goldenPickaxeOwned: false,
       ironPickaxeOwned: false,
+      steelPickaxeOwned: false,
       revision: 12,
       xp: 20,
     },
@@ -449,7 +494,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
       health: 2,
       ironHealth: 20,
       ironOre: 0,
+      equippedPickaxe: 'wooden',
+      goldenPickaxeOwned: false,
       ironPickaxeOwned: false,
+      steelPickaxeOwned: false,
       revision: 11,
       xp: 10,
     },
@@ -469,7 +517,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 5,
     xp: 10,
   }
@@ -484,7 +535,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 6,
     xp: 10,
   })
@@ -506,7 +560,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 6,
     xp: 10,
   })
@@ -532,7 +589,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 0,
     xp: 0,
   })
@@ -542,7 +602,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
   )
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
     coins: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
   })
 
   async function earnTwenty(walletCookie: string) {
@@ -559,7 +622,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
     coins: 20,
     health: 6,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
   })
 
   const purchaseId = crypto.randomUUID()
@@ -574,7 +640,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
     health: 6,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'iron',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: true,
+    steelPickaxeOwned: false,
     revision: 14,
     xp: 20,
   }
@@ -596,12 +665,18 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
   expect(competingPurchases.map((response) => response.status).sort()).toEqual([200, 409])
   expect(await (await request('/api/mining', undefined, thirdCookie)).json()).toMatchObject({
     coins: 0,
+    equippedPickaxe: 'iron',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: true,
+    steelPickaxeOwned: false,
     revision: 12,
   })
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
     coins: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
   })
 
   database.close()
@@ -640,7 +715,10 @@ test('Iron Mine is locked until level two and preserves both mine states through
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 0,
     xp: 0,
   })
@@ -697,7 +775,10 @@ test('Iron Mine is locked until level two and preserves both mine states through
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 0,
     xp: 0,
   })
@@ -723,7 +804,10 @@ test('Gold Mine and Crystal Cavern unlock by level, preserve damage, reward ores
     health: 10,
     ironHealth: 20,
     ironOre: 0,
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: false,
     ironPickaxeOwned: false,
+    steelPickaxeOwned: false,
     revision: 0,
     xp: 0,
   })
@@ -867,4 +951,135 @@ test('Gold Mine and Crystal Cavern unlock by level, preserve damage, reward ores
   database = new Database(path)
   app = createApp({ database, origin, secret })
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(sold)
+})
+
+test('Steel and Golden Pickaxes are server-priced, equip only when owned, preserve rock health, and persist', async () => {
+  const first = await generateKeyPairSigner()
+  const second = await generateKeyPairSigner()
+  const firstCookie = await login(first)
+  const secondCookie = await login(second)
+  const equip = (pickaxeId: string, cookie = firstCookie, actionId = crypto.randomUUID()) =>
+    request('/api/mining/equip', { actionId, pickaxeId }, cookie)
+  const buy = (pickaxeId: string, cookie = firstCookie, actionId = crypto.randomUUID()) =>
+    request(`/api/mining/upgrade/${pickaxeId}-pickaxe`, { actionId, cost: 0, damage: 999 }, cookie)
+  const mineCopper = (cookie: string, hits: number) =>
+    Promise.all(
+      Array.from({ length: hits }, () =>
+        request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, cookie),
+      ),
+    )
+  const sell = (cookie: string) => request('/api/mining/sell', { actionId: crypto.randomUUID() }, cookie)
+
+  expect((await request('/api/mining/upgrade/steel-pickaxe', { actionId: crypto.randomUUID() })).status).toBe(401)
+  expect((await request('/api/mining/equip', { actionId: crypto.randomUUID(), pickaxeId: 'golden' })).status).toBe(401)
+  expect((await equip('iron', secondCookie)).status).toBe(409)
+  expect((await equip('steel')).status).toBe(409)
+  expect((await buy('steel')).status).toBe(409)
+  expect((await buy('golden')).status).toBe(409)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({ coins: 0 })
+
+  await mineCopper(firstCookie, 50)
+  await sell(firstCookie)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({ coins: 100 })
+  await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)
+  const ironPurchaseId = crypto.randomUUID()
+  const ironPurchases = await Promise.all(Array.from({ length: 6 }, () => buy('iron', firstCookie, ironPurchaseId)))
+  expect(ironPurchases.every((response) => response.status === 200)).toBe(true)
+  const ironPurchase = await ironPurchases[0].json()
+  expect(ironPurchase).toMatchObject({ coins: 80, equippedPickaxe: 'iron', health: 8, ironPickaxeOwned: true })
+  for (const response of ironPurchases.slice(1)) expect(await response.json()).toEqual(ironPurchase)
+  expect(
+    await (await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)).json(),
+  ).toMatchObject({
+    coins: 80,
+    equippedPickaxe: 'iron',
+    health: 5,
+  })
+  await mineCopper(firstCookie, 5)
+  await mineCopper(firstCookie, 5)
+  await sell(firstCookie)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({ coins: 110, health: 10 })
+
+  const steelPurchaseId = crypto.randomUUID()
+  const steelPurchases = await Promise.all(Array.from({ length: 6 }, () => buy('steel', firstCookie, steelPurchaseId)))
+  expect(steelPurchases.every((response) => response.status === 200)).toBe(true)
+  const steelPurchase = await steelPurchases[0].json()
+  expect(steelPurchase).toMatchObject({ coins: 10, equippedPickaxe: 'steel', health: 10, steelPickaxeOwned: true })
+  for (const response of steelPurchases.slice(1)) expect(await response.json()).toEqual(steelPurchase)
+  expect(
+    await (await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)).json(),
+  ).toMatchObject({
+    equippedPickaxe: 'steel',
+    health: 5,
+  })
+  await mineCopper(firstCookie, 60)
+  await sell(firstCookie)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({ coins: 310, health: 5 })
+  await equip('iron')
+  await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)
+
+  const goldenPurchaseId = crypto.randomUUID()
+  const goldenPurchases = await Promise.all(
+    Array.from({ length: 6 }, () => buy('golden', firstCookie, goldenPurchaseId)),
+  )
+  expect(goldenPurchases.every((response) => response.status === 200)).toBe(true)
+  const goldenPurchase = await goldenPurchases[0].json()
+  expect(goldenPurchase).toMatchObject({
+    coins: 10,
+    equippedPickaxe: 'golden',
+    goldenPickaxeOwned: true,
+    health: 2,
+    steelPickaxeOwned: true,
+  })
+  for (const response of goldenPurchases.slice(1)) expect(await response.json()).toEqual(goldenPurchase)
+  expect(
+    await (await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)).json(),
+  ).toMatchObject({
+    equippedPickaxe: 'golden',
+    health: 10,
+  })
+  expect(await (await equip('steel')).json()).toMatchObject({ equippedPickaxe: 'steel', health: 10 })
+  expect(
+    await (await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)).json(),
+  ).toMatchObject({
+    equippedPickaxe: 'steel',
+    health: 5,
+  })
+  expect(await (await equip('iron')).json()).toMatchObject({ equippedPickaxe: 'iron', health: 5 })
+  expect(
+    await (await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)).json(),
+  ).toMatchObject({
+    equippedPickaxe: 'iron',
+    health: 2,
+  })
+  expect(await (await equip('wooden')).json()).toMatchObject({ equippedPickaxe: 'wooden', health: 2 })
+  const saved = await (
+    await request('/api/mining', { actionId: crypto.randomUUID(), mineId: 'copper' }, firstCookie)
+  ).json()
+  expect(saved).toMatchObject({
+    equippedPickaxe: 'wooden',
+    goldenPickaxeOwned: true,
+    health: 10,
+    steelPickaxeOwned: true,
+  })
+
+  await mineCopper(secondCookie, 150)
+  await sell(secondCookie)
+  const competingPurchases = await Promise.all([buy('golden', secondCookie), buy('golden', secondCookie)])
+  expect(competingPurchases.map((response) => response.status).sort()).toEqual([200, 409])
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
+    coins: 0,
+    equippedPickaxe: 'golden',
+    goldenPickaxeOwned: true,
+  })
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(saved)
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
+    coins: 0,
+    equippedPickaxe: 'golden',
+    goldenPickaxeOwned: true,
+  })
 })

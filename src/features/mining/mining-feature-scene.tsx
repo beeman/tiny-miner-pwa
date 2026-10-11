@@ -8,14 +8,26 @@ type MiningProgress = {
   copper: number
   crystalHealth: number
   crystalOre: number
+  equippedPickaxe: PickaxeId
   goldHealth: number
   goldOre: number
+  goldenPickaxeOwned: boolean
   health: number
   ironHealth: number
   ironOre: number
   ironPickaxeOwned: boolean
   revision: number
+  steelPickaxeOwned: boolean
   xp: number
+}
+
+type PickaxeId = 'wooden' | 'iron' | 'steel' | 'golden'
+
+const pickaxes: Record<PickaxeId, { damage: number; label: string; price: number }> = {
+  golden: { damage: 8, label: 'Golden Pickaxe', price: 300 },
+  iron: { damage: 3, label: 'Iron Pickaxe', price: 20 },
+  steel: { damage: 5, label: 'Steel Pickaxe', price: 100 },
+  wooden: { damage: 2, label: 'Wooden Pickaxe', price: 0 },
 }
 
 const mines = {
@@ -147,15 +159,17 @@ export function MiningFeatureScene() {
     },
     retry: false,
   })
-  const buyIronPickaxe = useMutation({
+  const buyPickaxe = useMutation({
     mutationFn: async ({
       actionId,
+      pickaxeId,
       walletAddress,
     }: {
       actionId: string
+      pickaxeId: Exclude<PickaxeId, 'wooden'>
       walletAddress: string
     }): Promise<MiningProgress & { walletAddress: string }> => {
-      const response = await fetch('/api/mining/upgrade/iron-pickaxe', {
+      const response = await fetch(`/api/mining/upgrade/${pickaxeId}-pickaxe`, {
         body: JSON.stringify({ actionId }),
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
@@ -183,8 +197,46 @@ export function MiningFeatureScene() {
   })
   const failedHit = mine.isError && mine.variables?.walletAddress === identity.data?.walletAddress
   const failedSale = sell.isError && sell.variables?.walletAddress === identity.data?.walletAddress
+  const equipPickaxe = useMutation({
+    mutationFn: async ({
+      actionId,
+      pickaxeId,
+      walletAddress,
+    }: {
+      actionId: string
+      pickaxeId: PickaxeId
+      walletAddress: string
+    }): Promise<MiningProgress & { walletAddress: string }> => {
+      const response = await fetch('/api/mining/equip', {
+        body: JSON.stringify({ actionId, pickaxeId }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      if (response.status === 401) {
+        await queryClient.invalidateQueries({ queryKey: ['auth-session'] })
+        throw new Error('Your session expired. Sign in again.')
+      }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(result?.error ?? 'Could not equip this pickaxe. Retry safely.')
+      }
+      const saved: MiningProgress = await response.json()
+      return { ...saved, walletAddress }
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ['mining-progress'] }),
+    onSuccess: async (saved) => {
+      const savedKey = ['mining-progress', saved.walletAddress]
+      await queryClient.cancelQueries({ queryKey: savedKey })
+      queryClient.setQueryData<MiningProgress>(savedKey, (previous) =>
+        previous && previous.revision > saved.revision ? previous : saved,
+      )
+    },
+    retry: false,
+  })
   const failedPickaxePurchase =
-    buyIronPickaxe.isError && buyIronPickaxe.variables?.walletAddress === identity.data?.walletAddress
+    buyPickaxe.isError && buyPickaxe.variables?.walletAddress === identity.data?.walletAddress
+  const failedPickaxeEquip =
+    equipPickaxe.isError && equipPickaxe.variables?.walletAddress === identity.data?.walletAddress
   const xp = progress.data?.xp ?? 0
   const level = Math.floor(xp / 100) + 1
   const health = progress.data?.[selectedMine.healthKey] ?? selectedMine.maxHealth
@@ -242,11 +294,11 @@ export function MiningFeatureScene() {
         />
       </button>
       <img
-        alt={progress.data?.ironPickaxeOwned ? 'Iron Pickaxe' : 'Wooden Pickaxe'}
+        alt={`${pickaxes[progress.data?.equippedPickaxe ?? 'wooden'].label}`}
         className="pointer-events-none absolute left-[62.22%] top-[53.75%] w-[35.56%] [image-rendering:pixelated]"
         draggable={false}
         height={256}
-        src={progress.data?.ironPickaxeOwned ? '/pickaxes/iron-pickaxe.png' : '/pickaxes/wooden-pickaxe.png'}
+        src={`/pickaxes/${progress.data?.equippedPickaxe ?? 'wooden'}-pickaxe.png`}
         width={256}
       />
       <div className="absolute inset-x-4 top-[16%] rounded-lg bg-black/70 p-3 text-center text-sm text-amber-100">
@@ -282,7 +334,10 @@ export function MiningFeatureScene() {
                     : `Health: ${health}/${selectedMine.maxHealth}`}
           {mine.isPending && <span role="status"> · Saving hit…</span>}
           {sell.isPending && <span role="status"> · Selling ore…</span>}
-          {buyIronPickaxe.isPending && <span role="status"> · Buying Iron Pickaxe…</span>}
+          {buyPickaxe.isPending && (
+            <span role="status"> · Buying {pickaxes[buyPickaxe.variables.pickaxeId].label}…</span>
+          )}
+          {equipPickaxe.isPending && <span role="status"> · Equipping pickaxe…</span>}
         </p>
         {progress.data && (
           <p>
@@ -296,8 +351,31 @@ export function MiningFeatureScene() {
           </p>
         )}
         <p>
-          Equipped: {progress.data?.ironPickaxeOwned ? 'Iron Pickaxe · 3 damage/hit' : 'Wooden Pickaxe · 2 damage/hit'}
+          Equipped: {pickaxes[progress.data?.equippedPickaxe ?? 'wooden'].label} ·{' '}
+          {pickaxes[progress.data?.equippedPickaxe ?? 'wooden'].damage} damage/hit
         </p>
+        <label className="mt-2 inline-flex items-center gap-2">
+          Pickaxe
+          <select
+            aria-label="Equip owned pickaxe"
+            className="rounded-md border border-amber-100/60 bg-black px-2 py-1"
+            disabled={!identity.data || equipPickaxe.isPending || !progress.data}
+            onChange={(event) =>
+              identity.data &&
+              equipPickaxe.mutate({
+                actionId: crypto.randomUUID(),
+                pickaxeId: event.target.value as PickaxeId,
+                walletAddress: identity.data.walletAddress,
+              })
+            }
+            value={progress.data?.equippedPickaxe ?? 'wooden'}
+          >
+            <option value="wooden">Wooden · 2 damage</option>
+            {progress.data?.ironPickaxeOwned && <option value="iron">Iron · 3 damage</option>}
+            {progress.data?.steelPickaxeOwned && <option value="steel">Steel · 5 damage</option>}
+            {progress.data?.goldenPickaxeOwned && <option value="golden">Golden · 8 damage</option>}
+          </select>
+        </label>
         <button
           className="mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={
@@ -316,38 +394,56 @@ export function MiningFeatureScene() {
         >
           Sell ore
         </button>
-        <button
-          className="ml-2 mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={
-            !identity.data ||
-            identity.isFetching ||
-            progress.isPending ||
-            progress.isError ||
-            progress.data?.ironPickaxeOwned ||
-            buyIronPickaxe.isPending ||
-            failedPickaxePurchase
-          }
-          onClick={() =>
-            identity.data &&
-            buyIronPickaxe.mutate({ actionId: crypto.randomUUID(), walletAddress: identity.data.walletAddress })
-          }
-          type="button"
-        >
-          {progress.data?.ironPickaxeOwned ? 'Owned' : 'Buy Iron Pickaxe · 20 coins'}
-        </button>
+        <div className="mt-2 flex flex-wrap justify-center gap-1.5" role="group" aria-label="Pickaxe upgrades">
+          {(['iron', 'steel', 'golden'] as const).map((pickaxeId) => {
+            const owned =
+              pickaxeId === 'iron'
+                ? progress.data?.ironPickaxeOwned
+                : pickaxeId === 'steel'
+                  ? progress.data?.steelPickaxeOwned
+                  : progress.data?.goldenPickaxeOwned
+            return (
+              <button
+                key={pickaxeId}
+                className="rounded-md border border-amber-100/60 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={
+                  !identity.data ||
+                  identity.isFetching ||
+                  progress.isPending ||
+                  progress.isError ||
+                  owned ||
+                  buyPickaxe.isPending ||
+                  failedPickaxePurchase
+                }
+                onClick={() =>
+                  identity.data &&
+                  buyPickaxe.mutate({
+                    actionId: crypto.randomUUID(),
+                    pickaxeId,
+                    walletAddress: identity.data.walletAddress,
+                  })
+                }
+                type="button"
+              >
+                {owned ? 'Owned' : `Buy ${pickaxes[pickaxeId].label} · ${pickaxes[pickaxeId].price} coins`}
+              </button>
+            )
+          })}
+        </div>
         {failedPickaxePurchase && (
           <>
-            <p role="alert">{buyIronPickaxe.error?.message}</p>
+            <p role="alert">{buyPickaxe.error?.message}</p>
             <button
               className="mt-1 underline"
-              disabled={buyIronPickaxe.isPending || !identity.data}
-              onClick={() => buyIronPickaxe.variables && buyIronPickaxe.mutate(buyIronPickaxe.variables)}
+              disabled={buyPickaxe.isPending || !identity.data}
+              onClick={() => buyPickaxe.variables && buyPickaxe.mutate(buyPickaxe.variables)}
               type="button"
             >
               Retry purchase
             </button>
           </>
         )}
+        {failedPickaxeEquip && <p role="alert">{equipPickaxe.error?.message}</p>}
         {failedSale && (
           <>
             <p role="alert">{sell.error?.message}</p>

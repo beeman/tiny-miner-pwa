@@ -50,6 +50,13 @@
       "when": 1791747402604,
       "tag": "0006_crystal_gold_mines",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791758643685,
+      "tag": "0007_pickaxe_progression",
+      "breakpoints": true
     }
   ]
 }
