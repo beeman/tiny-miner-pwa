@@ -52,6 +52,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
       health: schema.miningProgress.health,
+      ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
       revision: schema.miningProgress.revision,
       xp: schema.miningProgress.xp,
     }
@@ -61,7 +62,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
         .from(schema.miningProgress)
         .where(eq(schema.miningProgress.userId, userId))
         .get()
-      return c.json(progress ?? { coins: 0, copper: 0, health: 10, revision: 0, xp: 0 })
+      return c.json(progress ?? { coins: 0, copper: 0, health: 10, ironPickaxeOwned: false, revision: 0, xp: 0 })
     }
     const body: unknown = await c.req.json().catch(() => null)
     const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
@@ -78,6 +79,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
             coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
             health: schema.miningAction.health,
+            ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
             revision: schema.miningAction.revision,
             xp: schema.miningAction.xp,
           })
@@ -86,13 +88,14 @@ export function createApp({ database, origin, secret }: { database: Database; or
           .get()
         if (recorded) return recorded
         tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
+        const damage = sql<number>`CASE WHEN ${schema.miningProgress.ironPickaxeOwned} THEN 3 ELSE 2 END`
         const saved = tx
           .update(schema.miningProgress)
           .set({
-            copper: sql`${schema.miningProgress.copper} + CASE WHEN ${schema.miningProgress.health} <= 2 THEN 2 ELSE 0 END`,
-            health: sql`CASE WHEN ${schema.miningProgress.health} <= 2 THEN 10 ELSE ${schema.miningProgress.health} - 2 END`,
+            copper: sql`${schema.miningProgress.copper} + CASE WHEN ${schema.miningProgress.health} <= ${damage} THEN 2 ELSE 0 END`,
+            health: sql`CASE WHEN ${schema.miningProgress.health} <= ${damage} THEN 10 ELSE ${schema.miningProgress.health} - ${damage} END`,
             revision: sql`${schema.miningProgress.revision} + 1`,
-            xp: sql`${schema.miningProgress.xp} + CASE WHEN ${schema.miningProgress.health} <= 2 THEN 10 ELSE 0 END`,
+            xp: sql`${schema.miningProgress.xp} + CASE WHEN ${schema.miningProgress.health} <= ${damage} THEN 10 ELSE 0 END`,
           })
           .where(eq(schema.miningProgress.userId, userId))
           .returning(fields)
@@ -124,6 +127,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
       health: schema.miningProgress.health,
+      ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
       revision: schema.miningProgress.revision,
       xp: schema.miningProgress.xp,
     }
@@ -134,6 +138,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
             coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
             health: schema.miningAction.health,
+            ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
             revision: schema.miningAction.revision,
             xp: schema.miningAction.xp,
           })
@@ -161,6 +166,72 @@ export function createApp({ database, origin, secret }: { database: Database; or
       { behavior: 'immediate' },
     )
     return c.json(progress)
+  })
+  app.post('/api/mining/upgrade/iron-pickaxe', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const userId = session.user.id
+    const body: unknown = await c.req.json().catch(() => null)
+    const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
+    if (
+      typeof actionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionId)
+    ) {
+      return c.json({ error: 'A UUID actionId is required' }, 400)
+    }
+    const receiptId = `upgrade:iron-pickaxe:${actionId}`
+    const fields = {
+      coins: schema.miningProgress.coins,
+      copper: schema.miningProgress.copper,
+      health: schema.miningProgress.health,
+      ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
+      revision: schema.miningProgress.revision,
+      xp: schema.miningProgress.xp,
+    }
+    const result = db.transaction(
+      (tx) => {
+        const recorded = tx
+          .select({
+            coins: schema.miningAction.coins,
+            copper: schema.miningAction.copper,
+            health: schema.miningAction.health,
+            ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
+            revision: schema.miningAction.revision,
+            xp: schema.miningAction.xp,
+          })
+          .from(schema.miningAction)
+          .where(and(eq(schema.miningAction.actionId, receiptId), eq(schema.miningAction.userId, userId)))
+          .get()
+        if (recorded) return { progress: recorded }
+        tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
+        const current = tx
+          .select({ coins: schema.miningProgress.coins, owned: schema.miningProgress.ironPickaxeOwned })
+          .from(schema.miningProgress)
+          .where(eq(schema.miningProgress.userId, userId))
+          .get()
+        if (!current) throw new Error('Could not load mining progress')
+        if (current.owned) return { error: 'Iron Pickaxe already owned', status: 409 as const }
+        if (current.coins < 20) return { error: 'Not enough coins to buy the Iron Pickaxe', status: 409 as const }
+        const saved = tx
+          .update(schema.miningProgress)
+          .set({
+            coins: sql`${schema.miningProgress.coins} - 20`,
+            ironPickaxeOwned: true,
+            revision: sql`${schema.miningProgress.revision} + 1`,
+          })
+          .where(eq(schema.miningProgress.userId, userId))
+          .returning(fields)
+          .get()
+        if (!saved) throw new Error('Could not save Iron Pickaxe purchase')
+        tx.insert(schema.miningAction)
+          .values({ actionId: receiptId, ...saved, userId })
+          .run()
+        return { progress: saved }
+      },
+      { behavior: 'immediate' },
+    )
+    if ('error' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result.progress)
   })
   return app
 }

@@ -128,7 +128,7 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect((await request('/api/mining')).status).toBe(401)
   expect((await request('/api/mining', {})).status).toBe(401)
   expect((await request('/api/mining', {}, 'better-auth.session_token=forged')).status).toBe(401)
-  const initial = { coins: 0, copper: 0, health: 10, revision: 0, xp: 0 }
+  const initial = { coins: 0, copper: 0, health: 10, ironPickaxeOwned: false, revision: 0, xp: 0 }
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(initial)
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(initial)
   expect((await request('/api/mining', {}, firstCookie)).status).toBe(400)
@@ -146,17 +146,19 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
       coins: 0,
       copper: hit === 4 ? 2 : 0,
       health: hit === 4 ? 10 : 10 - (hit + 1) * 2,
+      ironPickaxeOwned: false,
       revision: hit + 1,
       xp: hit === 4 ? 10 : 0,
     })
   }
-  const broken = { coins: 0, copper: 2, health: 10, revision: 5, xp: 10 }
+  const broken = { coins: 0, copper: 2, health: 10, ironPickaxeOwned: false, revision: 5, xp: 10 }
   expect(await (await request('/api/mining', { actionId: actionIds[4] }, firstCookie)).json()).toEqual(broken)
   // Replaying an older hit returns its original result without changing current progress.
   expect(await (await request('/api/mining', { actionId: actionIds[0] }, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
     health: 8,
+    ironPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -168,19 +170,27 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   )
   expect(duplicates.every((response) => response.status === 200)).toBe(true)
   for (const response of duplicates) {
-    expect(await response.json()).toEqual({ coins: 0, copper: 2, health: 8, revision: 6, xp: 10 })
+    expect(await response.json()).toEqual({
+      coins: 0,
+      copper: 2,
+      health: 8,
+      ironPickaxeOwned: false,
+      revision: 6,
+      xp: 10,
+    })
   }
   const hits = await Promise.all(
     Array.from({ length: 5 }, () => request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)),
   )
   expect(hits.every((response) => response.status === 200)).toBe(true)
-  const saved = { coins: 0, copper: 4, health: 8, revision: 11, xp: 20 }
+  const saved = { coins: 0, copper: 4, health: 8, ironPickaxeOwned: false, revision: 11, xp: 20 }
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(saved)
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(initial)
   expect(await (await request('/api/mining', { actionId }, secondCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
     health: 8,
+    ironPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -190,7 +200,7 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   for (let hit = 0; hit < 3; hit++) {
     expect((await request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)).status).toBe(200)
   }
-  const beforeFailure = { coins: 0, copper: 4, health: 2, revision: 14, xp: 20 }
+  const beforeFailure = { coins: 0, copper: 4, health: 2, ironPickaxeOwned: false, revision: 14, xp: 20 }
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(beforeFailure)
   const failedId = crypto.randomUUID()
   database.exec(`CREATE TRIGGER fail_mining_action BEFORE INSERT ON mining_action
@@ -202,6 +212,7 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     coins: 0,
     copper: 6,
     health: 10,
+    ironPickaxeOwned: false,
     revision: 15,
     xp: 30,
   })
@@ -213,6 +224,7 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     coins: 0,
     copper: 6,
     health: 10,
+    ironPickaxeOwned: false,
     revision: 15,
     xp: 30,
   })
@@ -221,6 +233,7 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     coins: 0,
     copper: 0,
     health: 8,
+    ironPickaxeOwned: false,
     revision: 1,
     xp: 0,
   })
@@ -244,7 +257,7 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   for (const actionId of miningActionIds) {
     expect((await request('/api/mining', { actionId }, firstCookie)).status).toBe(200)
   }
-  const beforeSale = { coins: 0, copper: 2, health: 10, revision: 5, xp: 10 }
+  const beforeSale = { coins: 0, copper: 2, health: 10, ironPickaxeOwned: false, revision: 5, xp: 10 }
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(beforeSale)
   const saleId = miningActionIds[4]
   const saleRequest = {
@@ -254,7 +267,7 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     price: 999999,
     walletAddress: other.address,
   }
-  const sold = { coins: 10, copper: 0, health: 10, revision: 6, xp: 10 }
+  const sold = { coins: 10, copper: 0, health: 10, ironPickaxeOwned: false, revision: 6, xp: 10 }
   const duplicateSales = await Promise.all(
     Array.from({ length: 10 }, () => request('/api/mining/sell', saleRequest, firstCookie)),
   )
@@ -273,25 +286,27 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   expect(miningAndSelling.every((response) => response.status === 200)).toBe(true)
   const afterConcurrentActions = await (await request('/api/mining', undefined, firstCookie)).json()
   expect([
-    { coins: 10, copper: 2, health: 10, revision: 12, xp: 20 },
-    { coins: 20, copper: 0, health: 10, revision: 12, xp: 20 },
+    { coins: 10, copper: 2, health: 10, ironPickaxeOwned: false, revision: 12, xp: 20 },
+    { coins: 20, copper: 0, health: 10, ironPickaxeOwned: false, revision: 12, xp: 20 },
   ]).toContainEqual(afterConcurrentActions)
   expect(afterConcurrentActions.copper * 5 + afterConcurrentActions.coins).toBe(20)
   const recordedSale = await (await request('/api/mining/sell', { actionId: nextSaleId }, firstCookie)).json()
-  expect([afterConcurrentActions, { coins: 10, copper: 0, health: 2, revision: 11, xp: 10 }]).toContainEqual(
-    recordedSale,
-  )
+  expect([
+    afterConcurrentActions,
+    { coins: 10, copper: 0, health: 2, ironPickaxeOwned: false, revision: 11, xp: 10 },
+  ]).toContainEqual(recordedSale)
 
   const secondMiningIds = Array.from({ length: 5 }, () => crypto.randomUUID())
   for (const actionId of secondMiningIds) {
     expect((await request('/api/mining', { actionId }, secondCookie)).status).toBe(200)
   }
-  const secondBeforeSale = { coins: 0, copper: 2, health: 10, revision: 5, xp: 10 }
+  const secondBeforeSale = { coins: 0, copper: 2, health: 10, ironPickaxeOwned: false, revision: 5, xp: 10 }
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(secondBeforeSale)
   expect(await (await request('/api/mining/sell', { actionId: saleId }, secondCookie)).json()).toEqual({
     copper: 0,
     coins: 10,
     health: 10,
+    ironPickaxeOwned: false,
     revision: 6,
     xp: 10,
   })
@@ -307,8 +322,102 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     copper: 0,
     coins: 10,
     health: 10,
+    ironPickaxeOwned: false,
     revision: 6,
     xp: 10,
   })
   expect(await (await request('/api/mining/sell', { actionId: saleId }, firstCookie)).json()).toEqual(sold)
+})
+
+test('iron pickaxe purchases are server-priced, idempotent, isolated, and persistent', async () => {
+  const first = await generateKeyPairSigner()
+  const second = await generateKeyPairSigner()
+  const third = await generateKeyPairSigner()
+  const firstCookie = await login(first)
+  const secondCookie = await login(second)
+  const thirdCookie = await login(third)
+
+  expect((await request('/api/mining/upgrade/iron-pickaxe', { actionId: crypto.randomUUID() })).status).toBe(401)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
+    coins: 0,
+    copper: 0,
+    health: 10,
+    ironPickaxeOwned: false,
+    revision: 0,
+    xp: 0,
+  })
+  const unaffordableId = crypto.randomUUID()
+  expect((await request('/api/mining/upgrade/iron-pickaxe', { actionId: unaffordableId }, secondCookie)).status).toBe(
+    409,
+  )
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
+    coins: 0,
+    ironPickaxeOwned: false,
+  })
+
+  async function earnTwenty(walletCookie: string) {
+    for (let hit = 0; hit < 10; hit++) {
+      expect((await request('/api/mining', { actionId: crypto.randomUUID() }, walletCookie)).status).toBe(200)
+    }
+    expect((await request('/api/mining/sell', { actionId: crypto.randomUUID() }, walletCookie)).status).toBe(200)
+  }
+
+  await earnTwenty(firstCookie)
+  for (let hit = 0; hit < 2; hit++) {
+    expect((await request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)).status).toBe(200)
+  }
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    coins: 20,
+    health: 6,
+    ironPickaxeOwned: false,
+  })
+
+  const purchaseId = crypto.randomUUID()
+  const purchaseRequest = { actionId: purchaseId, coins: 0, cost: 0, damage: 100 }
+  const purchase = {
+    coins: 0,
+    copper: 0,
+    health: 6,
+    ironPickaxeOwned: true,
+    revision: 14,
+    xp: 20,
+  }
+  const duplicatePurchases = await Promise.all(
+    Array.from({ length: 10 }, () => request('/api/mining/upgrade/iron-pickaxe', purchaseRequest, firstCookie)),
+  )
+  expect(duplicatePurchases.every((response) => response.status === 200)).toBe(true)
+  for (const response of duplicatePurchases) expect(await response.json()).toEqual(purchase)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(purchase)
+
+  const upgradedHit = await request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)
+  expect(await upgradedHit.json()).toEqual({ ...purchase, health: 3, revision: 15 })
+
+  await earnTwenty(thirdCookie)
+  const competingPurchases = await Promise.all([
+    request('/api/mining/upgrade/iron-pickaxe', { actionId: crypto.randomUUID() }, thirdCookie),
+    request('/api/mining/upgrade/iron-pickaxe', { actionId: crypto.randomUUID() }, thirdCookie),
+  ])
+  expect(competingPurchases.map((response) => response.status).sort()).toEqual([200, 409])
+  expect(await (await request('/api/mining', undefined, thirdCookie)).json()).toMatchObject({
+    coins: 0,
+    ironPickaxeOwned: true,
+    revision: 12,
+  })
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
+    coins: 0,
+    ironPickaxeOwned: false,
+  })
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
+    ...purchase,
+    health: 3,
+    revision: 15,
+  })
+  expect(await (await request('/api/mining/upgrade/iron-pickaxe', purchaseRequest, firstCookie)).json()).toEqual(
+    purchase,
+  )
+  expect((await request('/api/mining', undefined)).status).toBe(401)
 })
