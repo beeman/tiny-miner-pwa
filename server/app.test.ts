@@ -104,3 +104,49 @@ test('validates a real signature, rejects replay, restores a persisted session, 
   expect((await request('/api/me', undefined, cookie)).status).toBe(401)
   expect((await request('/api/me')).status).toBe(401)
 })
+
+test('mining counters are server-owned, isolated by wallet, persistent, and require a session', async () => {
+  const other = await generateKeyPairSigner()
+  async function login(wallet: typeof signer) {
+    const nonceResponse = await request('/api/auth/siws/nonce', { walletAddress: wallet.address })
+    const nonce: SIWSNonceResponse = await nonceResponse.json()
+    const message = createSIWSMessage({ address: wallet.address, challenge: nonce })
+    const response = await request('/api/auth/siws/verify', {
+      message,
+      signature: await sign(message, wallet.keyPair),
+      walletAddress: wallet.address,
+    })
+    expect(response.status).toBe(200)
+    return response.headers
+      .getSetCookie()
+      .map((value) => value.split(';')[0])
+      .join('; ')
+  }
+  const firstCookie = await login(signer)
+  const secondCookie = await login(other)
+  expect((await request('/api/mining')).status).toBe(401)
+  expect((await request('/api/mining', {})).status).toBe(401)
+  expect((await request('/api/mining', {}, 'better-auth.session_token=forged')).status).toBe(401)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 0 })
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 0 })
+
+  // Neither the supplied value nor another wallet address can change the target or increment.
+  expect(
+    await (await request('/api/mining', { count: 9999, walletAddress: other.address }, firstCookie)).json(),
+  ).toEqual({ count: 1 })
+  const increments = await Promise.all(Array.from({ length: 10 }, () => request('/api/mining', {}, firstCookie)))
+  expect(increments.every((response) => response.status === 200)).toBe(true)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 11 })
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 0 })
+  expect(await (await request('/api/mining', {}, secondCookie)).json()).toEqual({ count: 1 })
+  expect((await request('/api/mining', {}, firstCookie, 'https://attacker.example')).status).toBe(403)
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 11 })
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 1 })
+  expect((await request('/api/auth/sign-out', {}, firstCookie)).status).toBe(200)
+  expect((await request('/api/mining', undefined, firstCookie)).status).toBe(401)
+  expect((await request('/api/mining', {}, firstCookie)).status).toBe(401)
+})

@@ -59,3 +59,10 @@ export const solanaWallet = sqliteTable('solana_wallet', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 })
+
+export const miningCounter = sqliteTable('mining_counter', {
+  count: integer('count').notNull().default(0),
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+})
