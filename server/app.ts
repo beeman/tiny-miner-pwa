@@ -51,6 +51,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
     const fields = {
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
+      crystalHealth: schema.miningProgress.crystalHealth,
+      crystalOre: schema.miningProgress.crystalOre,
+      goldHealth: schema.miningProgress.goldHealth,
+      goldOre: schema.miningProgress.goldOre,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
@@ -68,6 +72,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
         progress ?? {
           coins: 0,
           copper: 0,
+          crystalHealth: 40,
+          crystalOre: 0,
+          goldHealth: 30,
+          goldOre: 0,
           health: 10,
           ironHealth: 20,
           ironOre: 0,
@@ -86,17 +94,28 @@ export function createApp({ database, origin, secret }: { database: Database; or
     ) {
       return c.json({ error: 'A UUID actionId is required' }, 400)
     }
-    if (mineId !== 'copper' && mineId !== 'iron') return c.json({ error: 'A valid mineId is required' }, 400)
-    const receiptId = mineId === 'iron' ? `mine:iron:${actionId}` : actionId
-    const healthColumn = mineId === 'iron' ? schema.miningProgress.ironHealth : schema.miningProgress.health
+    if (mineId !== 'copper' && mineId !== 'crystal' && mineId !== 'gold' && mineId !== 'iron') {
+      return c.json({ error: 'A valid mineId is required' }, 400)
+    }
+    const mine = {
+      copper: { healthColumn: schema.miningProgress.health, maxHealth: 10, minLevel: 1 },
+      crystal: { healthColumn: schema.miningProgress.crystalHealth, maxHealth: 40, minLevel: 4 },
+      gold: { healthColumn: schema.miningProgress.goldHealth, maxHealth: 30, minLevel: 3 },
+      iron: { healthColumn: schema.miningProgress.ironHealth, maxHealth: 20, minLevel: 2 },
+    }[mineId]
+    const receiptId = mineId === 'copper' ? actionId : `mine:${mineId}:${actionId}`
     const damage = sql<number>`CASE WHEN ${schema.miningProgress.ironPickaxeOwned} THEN 3 ELSE 2 END`
-    const breakingHit = sql`${healthColumn} <= ${damage}`
+    const breakingHit = sql`${mine.healthColumn} <= ${damage}`
     const progress = db.transaction(
       (tx) => {
         const recorded = tx
           .select({
             coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
+            crystalHealth: schema.miningAction.crystalHealth,
+            crystalOre: schema.miningAction.crystalOre,
+            goldHealth: schema.miningAction.goldHealth,
+            goldOre: schema.miningAction.goldOre,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
@@ -113,20 +132,30 @@ export function createApp({ database, origin, secret }: { database: Database; or
           .from(schema.miningProgress)
           .where(eq(schema.miningProgress.userId, userId))
           .get()
-        if (mineId === 'iron' && (current?.xp ?? 0) < 100) {
-          return { error: 'Iron Mine unlocks at level 2', status: 403 as const }
+        if ((current?.xp ?? 0) < (mine.minLevel - 1) * 100) {
+          return { error: `Mine unlocks at level ${mine.minLevel}`, status: 403 as const }
         }
         tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
         const mineUpdates =
-          mineId === 'iron'
+          mineId === 'copper'
             ? {
-                ironHealth: sql`CASE WHEN ${breakingHit} THEN 20 ELSE ${schema.miningProgress.ironHealth} - ${damage} END`,
-                ironOre: sql`${schema.miningProgress.ironOre} + CASE WHEN ${breakingHit} THEN 2 ELSE 0 END`,
-              }
-            : {
                 copper: sql`${schema.miningProgress.copper} + CASE WHEN ${breakingHit} THEN 2 ELSE 0 END`,
-                health: sql`CASE WHEN ${breakingHit} THEN 10 ELSE ${schema.miningProgress.health} - ${damage} END`,
+                health: sql`CASE WHEN ${breakingHit} THEN ${mine.maxHealth} ELSE ${schema.miningProgress.health} - ${damage} END`,
               }
+            : mineId === 'crystal'
+              ? {
+                  crystalHealth: sql`CASE WHEN ${breakingHit} THEN ${mine.maxHealth} ELSE ${schema.miningProgress.crystalHealth} - ${damage} END`,
+                  crystalOre: sql`${schema.miningProgress.crystalOre} + CASE WHEN ${breakingHit} THEN 2 ELSE 0 END`,
+                }
+              : mineId === 'gold'
+                ? {
+                    goldHealth: sql`CASE WHEN ${breakingHit} THEN ${mine.maxHealth} ELSE ${schema.miningProgress.goldHealth} - ${damage} END`,
+                    goldOre: sql`${schema.miningProgress.goldOre} + CASE WHEN ${breakingHit} THEN 2 ELSE 0 END`,
+                  }
+                : {
+                    ironHealth: sql`CASE WHEN ${breakingHit} THEN ${mine.maxHealth} ELSE ${schema.miningProgress.ironHealth} - ${damage} END`,
+                    ironOre: sql`${schema.miningProgress.ironOre} + CASE WHEN ${breakingHit} THEN 2 ELSE 0 END`,
+                  }
         const saved = tx
           .update(schema.miningProgress)
           .set({
@@ -164,6 +193,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
     const fields = {
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
+      crystalHealth: schema.miningProgress.crystalHealth,
+      crystalOre: schema.miningProgress.crystalOre,
+      goldHealth: schema.miningProgress.goldHealth,
+      goldOre: schema.miningProgress.goldOre,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
@@ -177,6 +210,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
           .select({
             coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
+            crystalHealth: schema.miningAction.crystalHealth,
+            crystalOre: schema.miningAction.crystalOre,
+            goldHealth: schema.miningAction.goldHealth,
+            goldOre: schema.miningAction.goldOre,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
@@ -192,8 +229,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
         const saved = tx
           .update(schema.miningProgress)
           .set({
-            coins: sql`${schema.miningProgress.coins} + ${schema.miningProgress.copper} * 5 + ${schema.miningProgress.ironOre} * 10`,
+            coins: sql`${schema.miningProgress.coins} + ${schema.miningProgress.copper} * 5 + ${schema.miningProgress.crystalOre} * 50 + ${schema.miningProgress.goldOre} * 25 + ${schema.miningProgress.ironOre} * 10`,
             copper: 0,
+            crystalOre: 0,
+            goldOre: 0,
             ironOre: 0,
             revision: sql`${schema.miningProgress.revision} + 1`,
           })
@@ -226,6 +265,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
     const fields = {
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
+      crystalHealth: schema.miningProgress.crystalHealth,
+      crystalOre: schema.miningProgress.crystalOre,
+      goldHealth: schema.miningProgress.goldHealth,
+      goldOre: schema.miningProgress.goldOre,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
@@ -239,6 +282,10 @@ export function createApp({ database, origin, secret }: { database: Database; or
           .select({
             coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
+            crystalHealth: schema.miningAction.crystalHealth,
+            crystalOre: schema.miningAction.crystalOre,
+            goldHealth: schema.miningAction.goldHealth,
+            goldOre: schema.miningAction.goldOre,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
