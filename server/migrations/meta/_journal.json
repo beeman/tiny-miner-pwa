@@ -29,6 +29,13 @@
       "when": 1791704451439,
       "tag": "0003_coin_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791744582833,
+      "tag": "0004_iron_pickaxe",
+      "breakpoints": true
     }
   ]
 }

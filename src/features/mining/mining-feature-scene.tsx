@@ -2,7 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuthSession } from '@/features/auth/use-auth-session'
 
-type MiningProgress = { coins: number; copper: number; health: number; revision: number; xp: number }
+type MiningProgress = {
+  coins: number
+  copper: number
+  health: number
+  ironPickaxeOwned: boolean
+  revision: number
+  xp: number
+}
 
 export function MiningFeatureScene() {
   const identity = useAuthSession()
@@ -80,8 +87,44 @@ export function MiningFeatureScene() {
     },
     retry: false,
   })
+  const buyIronPickaxe = useMutation({
+    mutationFn: async ({
+      actionId,
+      walletAddress,
+    }: {
+      actionId: string
+      walletAddress: string
+    }): Promise<MiningProgress & { walletAddress: string }> => {
+      const response = await fetch('/api/mining/upgrade/iron-pickaxe', {
+        body: JSON.stringify({ actionId }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      if (response.status === 401) {
+        await queryClient.invalidateQueries({ queryKey: ['auth-session'] })
+        throw new Error('Your session expired. Sign in again.')
+      }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(result?.error ?? 'Could not confirm this purchase. Retry safely.')
+      }
+      const saved: MiningProgress = await response.json()
+      return { ...saved, walletAddress }
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ['mining-progress'] }),
+    onSuccess: async (saved) => {
+      const savedKey = ['mining-progress', saved.walletAddress]
+      await queryClient.cancelQueries({ queryKey: savedKey })
+      queryClient.setQueryData<MiningProgress>(savedKey, (previous) =>
+        previous && previous.revision > saved.revision ? previous : saved,
+      )
+    },
+    retry: false,
+  })
   const failedHit = mine.isError && mine.variables?.walletAddress === identity.data?.walletAddress
   const failedSale = sell.isError && sell.variables?.walletAddress === identity.data?.walletAddress
+  const failedPickaxePurchase =
+    buyIronPickaxe.isError && buyIronPickaxe.variables?.walletAddress === identity.data?.walletAddress
   const rock =
     (progress.data?.health ?? 10) <= 4
       ? 'copper-rock-heavily-cracked.png'
@@ -122,11 +165,11 @@ export function MiningFeatureScene() {
         />
       </button>
       <img
-        alt="Wooden pickaxe"
+        alt={progress.data?.ironPickaxeOwned ? 'Iron Pickaxe' : 'Wooden Pickaxe'}
         className="pointer-events-none absolute left-[62.22%] top-[53.75%] w-[35.56%] [image-rendering:pixelated]"
         draggable={false}
         height={256}
-        src="/copper-cave/wooden-pickaxe.png"
+        src={progress.data?.ironPickaxeOwned ? '/pickaxes/iron-pickaxe.png' : '/pickaxes/wooden-pickaxe.png'}
         width={256}
       />
       <div className="absolute inset-x-4 top-[16%] rounded-lg bg-black/70 p-3 text-center text-sm text-amber-100">
@@ -144,6 +187,10 @@ export function MiningFeatureScene() {
                     : `Health: ${progress.data?.health ?? 10}/10 · Copper: ${progress.data?.copper ?? 0} · Coins: ${progress.data?.coins ?? 0} · XP: ${progress.data?.xp ?? 0}`}
           {mine.isPending && <span role="status"> · Saving hit…</span>}
           {sell.isPending && <span role="status"> · Selling copper…</span>}
+          {buyIronPickaxe.isPending && <span role="status"> · Buying Iron Pickaxe…</span>}
+        </p>
+        <p>
+          Equipped: {progress.data?.ironPickaxeOwned ? 'Iron Pickaxe · 3 damage/hit' : 'Wooden Pickaxe · 2 damage/hit'}
         </p>
         <button
           className="mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
@@ -163,6 +210,38 @@ export function MiningFeatureScene() {
         >
           Sell copper
         </button>
+        <button
+          className="ml-2 mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={
+            !identity.data ||
+            identity.isFetching ||
+            progress.isPending ||
+            progress.isError ||
+            progress.data?.ironPickaxeOwned ||
+            buyIronPickaxe.isPending ||
+            failedPickaxePurchase
+          }
+          onClick={() =>
+            identity.data &&
+            buyIronPickaxe.mutate({ actionId: crypto.randomUUID(), walletAddress: identity.data.walletAddress })
+          }
+          type="button"
+        >
+          {progress.data?.ironPickaxeOwned ? 'Owned' : 'Buy Iron Pickaxe · 20 coins'}
+        </button>
+        {failedPickaxePurchase && (
+          <>
+            <p role="alert">{buyIronPickaxe.error?.message}</p>
+            <button
+              className="mt-1 underline"
+              disabled={buyIronPickaxe.isPending || !identity.data}
+              onClick={() => buyIronPickaxe.variables && buyIronPickaxe.mutate(buyIronPickaxe.variables)}
+              type="button"
+            >
+              Retry purchase
+            </button>
+          </>
+        )}
         {failedSale && (
           <>
             <p role="alert">{sell.error?.message}</p>
