@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { siws } from 'better-auth-solana'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Hono } from 'hono'
@@ -43,6 +43,29 @@ export function createApp({ database, origin, secret }: { database: Database; or
       .get()
     if (!wallet) return c.json({ error: 'Wallet identity required' }, 403)
     return c.json({ walletAddress: wallet.address })
+  })
+  app.on(['GET', 'POST'], '/api/mining', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const userId = session.user.id
+    if (c.req.method === 'GET') {
+      const counter = db
+        .select({ count: schema.miningCounter.count })
+        .from(schema.miningCounter)
+        .where(eq(schema.miningCounter.userId, userId))
+        .get()
+      return c.json(counter ?? { count: 0 })
+    }
+    const counter = db
+      .insert(schema.miningCounter)
+      .values({ count: 1, userId })
+      .onConflictDoUpdate({
+        set: { count: sql`${schema.miningCounter.count} + 1` },
+        target: schema.miningCounter.userId,
+      })
+      .returning({ count: schema.miningCounter.count })
+      .get()
+    return c.json(counter)
   })
   return app
 }

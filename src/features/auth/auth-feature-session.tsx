@@ -1,6 +1,6 @@
 import { getBase58Decoder } from '@solana/kit'
 import { useSignMessage } from '@solana/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UiWalletAccount } from '@wallet-standard/ui'
 import { createSIWSMessage } from 'better-auth-solana/client'
 
@@ -8,19 +8,11 @@ import { Button } from '@/components/ui/button'
 import { formatError } from '@/features/wallet/util/format-error'
 
 import { authClient } from './auth-client'
+import { useAuthSession } from './use-auth-session'
 
 export function AuthFeatureSession({ account }: { account?: UiWalletAccount }) {
   const queryClient = useQueryClient()
-  const identity = useQuery({
-    queryFn: async ({ signal }): Promise<{ walletAddress: string } | null> => {
-      const response = await fetch('/api/me', { signal })
-      if (response.status === 401) return null
-      if (!response.ok) throw new Error('Could not load your session. Check that the server is running.')
-      return response.json()
-    },
-    queryKey: ['auth-session'],
-    retry: false,
-  })
+  const identity = useAuthSession()
   const signOut = useMutation({
     mutationFn: async () => {
       const result = await authClient.signOut()

@@ -8,6 +8,13 @@
       "when": 1791696632574,
       "tag": "0000_spotty_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791698840153,
+      "tag": "0001_mining_counter",
+      "breakpoints": true
     }
   ]
 }
