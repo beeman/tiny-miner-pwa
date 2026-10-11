@@ -161,10 +161,15 @@ real Ed25519 signatures; they never use a user's wallet or funds.
 
 An authenticated player's rock starts with 10 health. Each wooden pickaxe hit
 deals 2 damage; breaking a rock grants 2 copper and 10 XP and immediately replaces
-it with a fresh rock. Health, copper, and XP are persisted on the server.
+it with a fresh rock. Health, copper, coins, and XP are persisted on the server.
 
 `GET /api/mining` restores progress. `POST /api/mining` accepts only an action UUID
 (`actionId`) as input to a hit. The server records its result in the same SQLite
 transaction as damage and rewards. Duplicate action IDs for that player return
 the recorded result. **Retry hit** reuses the failed request's ID. Old demo counts
 remain an internal revision and do not grant rewards.
+
+`POST /api/mining/sell` accepts only an action UUID and atomically sells all held
+copper for 5 coins per unit. The server records the sale result with the same
+receipt pattern, so a retry cannot sell the same copper twice. **Retry sale**
+reuses the failed request's ID.
