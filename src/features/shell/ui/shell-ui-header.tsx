@@ -16,7 +16,7 @@ export function ShellUiHeader() {
             thing to edit, and its internal colors remain what the browser tab renders.
           */}
           <span aria-hidden className="app-logo size-6 shrink-0" />
-          <span className="max-sm:sr-only">Tiny Miner Pwa</span>
+          <span className="max-sm:sr-only">Tiny Miner</span>
         </a>
         <ClusterUiSelect />
         <WalletUiConnectMenu />
