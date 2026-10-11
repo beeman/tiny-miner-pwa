@@ -36,6 +36,13 @@
       "when": 1791744582833,
       "tag": "0004_iron_pickaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791745921350,
+      "tag": "0005_iron_mine",
+      "breakpoints": true
     }
   ]
 }

@@ -64,6 +64,8 @@ export const miningProgress = sqliteTable('mining_counter', {
   coins: integer('coins').notNull().default(0),
   copper: integer('copper').notNull().default(0),
   health: integer('health').notNull().default(10),
+  ironHealth: integer('iron_health').notNull().default(20),
+  ironOre: integer('iron_ore').notNull().default(0),
   ironPickaxeOwned: integer('iron_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
   revision: integer('count').notNull().default(0),
   userId: text('user_id')
@@ -79,6 +81,8 @@ export const miningAction = sqliteTable(
     coins: integer('coins').notNull().default(0),
     copper: integer('copper').notNull(),
     health: integer('health').notNull(),
+    ironHealth: integer('iron_health').notNull().default(20),
+    ironOre: integer('iron_ore').notNull().default(0),
     ironPickaxeOwned: integer('iron_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
     revision: integer('revision').notNull(),
     userId: text('user_id')
