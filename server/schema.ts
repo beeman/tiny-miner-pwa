@@ -61,6 +61,7 @@ export const solanaWallet = sqliteTable('solana_wallet', {
 })
 
 export const miningProgress = sqliteTable('mining_counter', {
+  coins: integer('coins').notNull().default(0),
   copper: integer('copper').notNull().default(0),
   health: integer('health').notNull().default(10),
   revision: integer('count').notNull().default(0),
@@ -74,6 +75,7 @@ export const miningAction = sqliteTable(
   'mining_action',
   {
     actionId: text('action_id').notNull(),
+    coins: integer('coins').notNull().default(0),
     copper: integer('copper').notNull(),
     health: integer('health').notNull(),
     revision: integer('revision').notNull(),

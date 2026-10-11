@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuthSession } from '@/features/auth/use-auth-session'
 
-type MiningProgress = { copper: number; health: number; revision: number; xp: number }
+type MiningProgress = { coins: number; copper: number; health: number; revision: number; xp: number }
 
 export function MiningFeatureScene() {
   const identity = useAuthSession()
@@ -49,7 +49,39 @@ export function MiningFeatureScene() {
     },
     retry: false,
   })
+  const sell = useMutation({
+    mutationFn: async ({
+      actionId,
+      walletAddress,
+    }: {
+      actionId: string
+      walletAddress: string
+    }): Promise<MiningProgress & { walletAddress: string }> => {
+      const response = await fetch('/api/mining/sell', {
+        body: JSON.stringify({ actionId }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      if (response.status === 401) {
+        await queryClient.invalidateQueries({ queryKey: ['auth-session'] })
+        throw new Error('Your session expired. Sign in again.')
+      }
+      if (!response.ok) throw new Error('Could not confirm this sale. Retry the same sale safely.')
+      const saved: MiningProgress = await response.json()
+      return { ...saved, walletAddress }
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ['mining-progress'] }),
+    onSuccess: async (saved) => {
+      const savedKey = ['mining-progress', saved.walletAddress]
+      await queryClient.cancelQueries({ queryKey: savedKey })
+      queryClient.setQueryData<MiningProgress>(savedKey, (previous) =>
+        previous && previous.revision > saved.revision ? previous : saved,
+      )
+    },
+    retry: false,
+  })
   const failedHit = mine.isError && mine.variables?.walletAddress === identity.data?.walletAddress
+  const failedSale = sell.isError && sell.variables?.walletAddress === identity.data?.walletAddress
   const rock =
     (progress.data?.health ?? 10) <= 4
       ? 'copper-rock-heavily-cracked.png'
@@ -109,9 +141,41 @@ export function MiningFeatureScene() {
                   ? 'Loading saved progress…'
                   : progress.error
                     ? 'Could not load your progress.'
-                    : `Health: ${progress.data?.health ?? 10}/10 · Copper: ${progress.data?.copper ?? 0} · XP: ${progress.data?.xp ?? 0}`}
+                    : `Health: ${progress.data?.health ?? 10}/10 · Copper: ${progress.data?.copper ?? 0} · Coins: ${progress.data?.coins ?? 0} · XP: ${progress.data?.xp ?? 0}`}
           {mine.isPending && <span role="status"> · Saving hit…</span>}
+          {sell.isPending && <span role="status"> · Selling copper…</span>}
         </p>
+        <button
+          className="mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={
+            !identity.data ||
+            identity.isFetching ||
+            progress.isPending ||
+            progress.isError ||
+            (progress.data?.copper ?? 0) === 0 ||
+            sell.isPending ||
+            failedSale
+          }
+          onClick={() =>
+            identity.data && sell.mutate({ actionId: crypto.randomUUID(), walletAddress: identity.data.walletAddress })
+          }
+          type="button"
+        >
+          Sell copper
+        </button>
+        {failedSale && (
+          <>
+            <p role="alert">{sell.error?.message}</p>
+            <button
+              className="mt-1 underline"
+              disabled={sell.isPending || !identity.data}
+              onClick={() => sell.variables && sell.mutate(sell.variables)}
+              type="button"
+            >
+              Retry sale
+            </button>
+          </>
+        )}
         {failedHit && (
           <>
             <p role="alert">{mine.error?.message}</p>

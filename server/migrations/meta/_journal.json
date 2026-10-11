@@ -22,6 +22,13 @@
       "when": 1791700803226,
       "tag": "0002_rock_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791704451439,
+      "tag": "0003_coin_balance",
+      "breakpoints": true
     }
   ]
 }

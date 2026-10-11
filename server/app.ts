@@ -49,6 +49,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
     if (!session) return c.json({ error: 'Authentication required' }, 401)
     const userId = session.user.id
     const fields = {
+      coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
       health: schema.miningProgress.health,
       revision: schema.miningProgress.revision,
@@ -60,7 +61,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
         .from(schema.miningProgress)
         .where(eq(schema.miningProgress.userId, userId))
         .get()
-      return c.json(progress ?? { copper: 0, health: 10, revision: 0, xp: 0 })
+      return c.json(progress ?? { coins: 0, copper: 0, health: 10, revision: 0, xp: 0 })
     }
     const body: unknown = await c.req.json().catch(() => null)
     const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
@@ -74,6 +75,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
       (tx) => {
         const recorded = tx
           .select({
+            coins: schema.miningAction.coins,
             copper: schema.miningAction.copper,
             health: schema.miningAction.health,
             revision: schema.miningAction.revision,
@@ -98,6 +100,61 @@ export function createApp({ database, origin, secret }: { database: Database; or
         if (!saved) throw new Error('Could not save mining progress')
         tx.insert(schema.miningAction)
           .values({ actionId, ...saved, userId })
+          .run()
+        return saved
+      },
+      { behavior: 'immediate' },
+    )
+    return c.json(progress)
+  })
+  app.post('/api/mining/sell', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const userId = session.user.id
+    const body: unknown = await c.req.json().catch(() => null)
+    const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
+    if (
+      typeof actionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionId)
+    ) {
+      return c.json({ error: 'A UUID actionId is required' }, 400)
+    }
+    const receiptId = `sell:${actionId}`
+    const fields = {
+      coins: schema.miningProgress.coins,
+      copper: schema.miningProgress.copper,
+      health: schema.miningProgress.health,
+      revision: schema.miningProgress.revision,
+      xp: schema.miningProgress.xp,
+    }
+    const progress = db.transaction(
+      (tx) => {
+        const recorded = tx
+          .select({
+            coins: schema.miningAction.coins,
+            copper: schema.miningAction.copper,
+            health: schema.miningAction.health,
+            revision: schema.miningAction.revision,
+            xp: schema.miningAction.xp,
+          })
+          .from(schema.miningAction)
+          .where(and(eq(schema.miningAction.actionId, receiptId), eq(schema.miningAction.userId, userId)))
+          .get()
+        if (recorded) return recorded
+        tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
+        const saved = tx
+          .update(schema.miningProgress)
+          .set({
+            coins: sql`${schema.miningProgress.coins} + ${schema.miningProgress.copper} * 5`,
+            copper: 0,
+            revision: sql`${schema.miningProgress.revision} + 1`,
+          })
+          .where(eq(schema.miningProgress.userId, userId))
+          .returning(fields)
+          .get()
+        if (!saved) throw new Error('Could not save copper sale')
+        tx.insert(schema.miningAction)
+          .values({ actionId: receiptId, ...saved, userId })
           .run()
         return saved
       },
