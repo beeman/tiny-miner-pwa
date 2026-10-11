@@ -15,6 +15,13 @@
       "when": 1791698840153,
       "tag": "0001_mining_counter",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791700803226,
+      "tag": "0002_rock_rewards",
+      "breakpoints": true
     }
   ]
 }

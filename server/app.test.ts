@@ -105,7 +105,7 @@ test('validates a real signature, rejects replay, restores a persisted session, 
   expect((await request('/api/me')).status).toBe(401)
 })
 
-test('mining counters are server-owned, isolated by wallet, persistent, and require a session', async () => {
+test('rock damage and rewards are atomic, idempotent, isolated by wallet, persistent, and require a session', async () => {
   const other = await generateKeyPairSigner()
   async function login(wallet: typeof signer) {
     const nonceResponse = await request('/api/auth/siws/nonce', { walletAddress: wallet.address })
@@ -127,26 +127,97 @@ test('mining counters are server-owned, isolated by wallet, persistent, and requ
   expect((await request('/api/mining')).status).toBe(401)
   expect((await request('/api/mining', {})).status).toBe(401)
   expect((await request('/api/mining', {}, 'better-auth.session_token=forged')).status).toBe(401)
-  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 0 })
-  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 0 })
+  const initial = { copper: 0, health: 10, revision: 0, xp: 0 }
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(initial)
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(initial)
+  expect((await request('/api/mining', {}, firstCookie)).status).toBe(400)
+  expect((await request('/api/mining', { actionId: 'invalid' }, firstCookie)).status).toBe(400)
 
-  // Neither the supplied value nor another wallet address can change the target or increment.
-  expect(
-    await (await request('/api/mining', { count: 9999, walletAddress: other.address }, firstCookie)).json(),
-  ).toEqual({ count: 1 })
-  const increments = await Promise.all(Array.from({ length: 10 }, () => request('/api/mining', {}, firstCookie)))
-  expect(increments.every((response) => response.status === 200)).toBe(true)
-  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 11 })
-  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 0 })
-  expect(await (await request('/api/mining', {}, secondCookie)).json()).toEqual({ count: 1 })
-  expect((await request('/api/mining', {}, firstCookie, 'https://attacker.example')).status).toBe(403)
+  const actionIds = Array.from({ length: 5 }, () => crypto.randomUUID())
+  for (let hit = 0; hit < 5; hit++) {
+    const response = await request(
+      '/api/mining',
+      { actionId: actionIds[hit], copper: 9999, damage: 10, health: 0, walletAddress: other.address, xp: 9999 },
+      firstCookie,
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      copper: hit === 4 ? 2 : 0,
+      health: hit === 4 ? 10 : 10 - (hit + 1) * 2,
+      revision: hit + 1,
+      xp: hit === 4 ? 10 : 0,
+    })
+  }
+  const broken = { copper: 2, health: 10, revision: 5, xp: 10 }
+  expect(await (await request('/api/mining', { actionId: actionIds[4] }, firstCookie)).json()).toEqual(broken)
+  // Replaying an older hit returns its original result without changing current progress.
+  expect(await (await request('/api/mining', { actionId: actionIds[0] }, firstCookie)).json()).toEqual({
+    copper: 0,
+    health: 8,
+    revision: 1,
+    xp: 0,
+  })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(broken)
+
+  const actionId = crypto.randomUUID()
+  const duplicates = await Promise.all(
+    Array.from({ length: 10 }, () => request('/api/mining', { actionId }, firstCookie)),
+  )
+  expect(duplicates.every((response) => response.status === 200)).toBe(true)
+  for (const response of duplicates) {
+    expect(await response.json()).toEqual({ copper: 2, health: 8, revision: 6, xp: 10 })
+  }
+  const hits = await Promise.all(
+    Array.from({ length: 5 }, () => request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)),
+  )
+  expect(hits.every((response) => response.status === 200)).toBe(true)
+  const saved = { copper: 4, health: 8, revision: 11, xp: 20 }
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(saved)
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(initial)
+  expect(await (await request('/api/mining', { actionId }, secondCookie)).json()).toEqual({
+    copper: 0,
+    health: 8,
+    revision: 1,
+    xp: 0,
+  })
+  expect((await request('/api/mining', { actionId }, firstCookie, 'https://attacker.example')).status).toBe(403)
+
+  // Reach the breaking hit, then fail its receipt to exercise reward rollback too.
+  for (let hit = 0; hit < 3; hit++) {
+    expect((await request('/api/mining', { actionId: crypto.randomUUID() }, firstCookie)).status).toBe(200)
+  }
+  const beforeFailure = { copper: 4, health: 2, revision: 14, xp: 20 }
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(beforeFailure)
+  const failedId = crypto.randomUUID()
+  database.exec(`CREATE TRIGGER fail_mining_action BEFORE INSERT ON mining_action
+    WHEN NEW.action_id = '${failedId}' BEGIN SELECT RAISE(ABORT, 'test action failure'); END`)
+  expect((await request('/api/mining', { actionId: failedId }, firstCookie)).status).toBe(500)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(beforeFailure)
+  database.exec('DROP TRIGGER fail_mining_action')
+  expect(await (await request('/api/mining', { actionId: failedId }, firstCookie)).json()).toEqual({
+    copper: 6,
+    health: 10,
+    revision: 15,
+    xp: 30,
+  })
 
   database.close()
   database = new Database(path)
   app = createApp({ database, origin, secret })
-  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({ count: 11 })
-  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({ count: 1 })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
+    copper: 6,
+    health: 10,
+    revision: 15,
+    xp: 30,
+  })
+  expect(await (await request('/api/mining', { actionId: actionIds[4] }, firstCookie)).json()).toEqual(broken)
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({
+    copper: 0,
+    health: 8,
+    revision: 1,
+    xp: 0,
+  })
   expect((await request('/api/auth/sign-out', {}, firstCookie)).status).toBe(200)
   expect((await request('/api/mining', undefined, firstCookie)).status).toBe(401)
-  expect((await request('/api/mining', {}, firstCookie)).status).toBe(401)
+  expect((await request('/api/mining', { actionId }, firstCookie)).status).toBe(401)
 })
