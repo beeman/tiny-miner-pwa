@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const user = sqliteTable('user', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
@@ -60,9 +60,27 @@ export const solanaWallet = sqliteTable('solana_wallet', {
     .references(() => user.id, { onDelete: 'cascade' }),
 })
 
-export const miningCounter = sqliteTable('mining_counter', {
-  count: integer('count').notNull().default(0),
+export const miningProgress = sqliteTable('mining_counter', {
+  copper: integer('copper').notNull().default(0),
+  health: integer('health').notNull().default(10),
+  revision: integer('count').notNull().default(0),
   userId: text('user_id')
     .primaryKey()
     .references(() => user.id, { onDelete: 'cascade' }),
+  xp: integer('xp').notNull().default(0),
 })
+
+export const miningAction = sqliteTable(
+  'mining_action',
+  {
+    actionId: text('action_id').notNull(),
+    copper: integer('copper').notNull(),
+    health: integer('health').notNull(),
+    revision: integer('revision').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    xp: integer('xp').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.actionId, table.userId] })],
+)

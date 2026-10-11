@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { siws } from 'better-auth-solana'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Hono } from 'hono'
@@ -48,24 +48,62 @@ export function createApp({ database, origin, secret }: { database: Database; or
     const session = await auth.api.getSession({ headers: c.req.raw.headers })
     if (!session) return c.json({ error: 'Authentication required' }, 401)
     const userId = session.user.id
-    if (c.req.method === 'GET') {
-      const counter = db
-        .select({ count: schema.miningCounter.count })
-        .from(schema.miningCounter)
-        .where(eq(schema.miningCounter.userId, userId))
-        .get()
-      return c.json(counter ?? { count: 0 })
+    const fields = {
+      copper: schema.miningProgress.copper,
+      health: schema.miningProgress.health,
+      revision: schema.miningProgress.revision,
+      xp: schema.miningProgress.xp,
     }
-    const counter = db
-      .insert(schema.miningCounter)
-      .values({ count: 1, userId })
-      .onConflictDoUpdate({
-        set: { count: sql`${schema.miningCounter.count} + 1` },
-        target: schema.miningCounter.userId,
-      })
-      .returning({ count: schema.miningCounter.count })
-      .get()
-    return c.json(counter)
+    if (c.req.method === 'GET') {
+      const progress = db
+        .select(fields)
+        .from(schema.miningProgress)
+        .where(eq(schema.miningProgress.userId, userId))
+        .get()
+      return c.json(progress ?? { copper: 0, health: 10, revision: 0, xp: 0 })
+    }
+    const body: unknown = await c.req.json().catch(() => null)
+    const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
+    if (
+      typeof actionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionId)
+    ) {
+      return c.json({ error: 'A UUID actionId is required' }, 400)
+    }
+    const progress = db.transaction(
+      (tx) => {
+        const recorded = tx
+          .select({
+            copper: schema.miningAction.copper,
+            health: schema.miningAction.health,
+            revision: schema.miningAction.revision,
+            xp: schema.miningAction.xp,
+          })
+          .from(schema.miningAction)
+          .where(and(eq(schema.miningAction.actionId, actionId), eq(schema.miningAction.userId, userId)))
+          .get()
+        if (recorded) return recorded
+        tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
+        const saved = tx
+          .update(schema.miningProgress)
+          .set({
+            copper: sql`${schema.miningProgress.copper} + CASE WHEN ${schema.miningProgress.health} <= 2 THEN 2 ELSE 0 END`,
+            health: sql`CASE WHEN ${schema.miningProgress.health} <= 2 THEN 10 ELSE ${schema.miningProgress.health} - 2 END`,
+            revision: sql`${schema.miningProgress.revision} + 1`,
+            xp: sql`${schema.miningProgress.xp} + CASE WHEN ${schema.miningProgress.health} <= 2 THEN 10 ELSE 0 END`,
+          })
+          .where(eq(schema.miningProgress.userId, userId))
+          .returning(fields)
+          .get()
+        if (!saved) throw new Error('Could not save mining progress')
+        tx.insert(schema.miningAction)
+          .values({ actionId, ...saved, userId })
+          .run()
+        return saved
+      },
+      { behavior: 'immediate' },
+    )
+    return c.json(progress)
   })
   return app
 }

@@ -156,3 +156,15 @@ No Android or webshell integration is included in this block.
 Checks: `bun run typecheck:server`, `bun test server`, `bun run lint:check`,
 `bun run format:check`, and `bun run build`. Backend tests use isolated SQLite and
 real Ed25519 signatures; they never use a user's wallet or funds.
+
+## Copper Cave mining
+
+An authenticated player's rock starts with 10 health. Each wooden pickaxe hit
+deals 2 damage; breaking a rock grants 2 copper and 10 XP and immediately replaces
+it with a fresh rock. Health, copper, and XP are persisted on the server.
+
+`GET /api/mining` restores progress. `POST /api/mining` accepts only an action UUID
+(`actionId`) as input to a hit. The server records its result in the same SQLite
+transaction as damage and rewards. Duplicate action IDs for that player return
+the recorded result. **Retry hit** reuses the failed request's ID. Old demo counts
+remain an internal revision and do not grant rewards.
