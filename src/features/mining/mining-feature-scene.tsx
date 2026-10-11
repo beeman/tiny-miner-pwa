@@ -6,6 +6,10 @@ import { useAuthSession } from '@/features/auth/use-auth-session'
 type MiningProgress = {
   coins: number
   copper: number
+  crystalHealth: number
+  crystalOre: number
+  goldHealth: number
+  goldOre: number
   health: number
   ironHealth: number
   ironOre: number
@@ -14,8 +18,58 @@ type MiningProgress = {
   xp: number
 }
 
+const mines = {
+  copper: {
+    assetDirectory: 'copper-cave',
+    background: '/copper-cave/cave-background.png',
+    healthKey: 'health',
+    label: 'Copper Cave',
+    maxHealth: 10,
+    minLevel: 1,
+    oreKey: 'copper',
+    resource: 'copper',
+    rockPrefix: 'copper-rock',
+  },
+  crystal: {
+    assetDirectory: 'crystal-cavern',
+    background: '/crystal-cavern/cave-background.png',
+    healthKey: 'crystalHealth',
+    label: 'Crystal Cavern',
+    maxHealth: 40,
+    minLevel: 4,
+    oreKey: 'crystalOre',
+    resource: 'crystal',
+    rockPrefix: 'crystal-rock',
+  },
+  gold: {
+    assetDirectory: 'gold-mine',
+    background: '/gold-mine/cave-background.png',
+    healthKey: 'goldHealth',
+    label: 'Gold Mine',
+    maxHealth: 30,
+    minLevel: 3,
+    oreKey: 'goldOre',
+    resource: 'gold',
+    rockPrefix: 'gold-rock',
+  },
+  iron: {
+    assetDirectory: 'iron-mine',
+    background: '/iron-mine/cave-background.png',
+    healthKey: 'ironHealth',
+    label: 'Iron Mine',
+    maxHealth: 20,
+    minLevel: 2,
+    oreKey: 'ironOre',
+    resource: 'iron',
+    rockPrefix: 'iron-rock',
+  },
+} as const
+type MineId = keyof typeof mines
+const mineOrder: MineId[] = ['copper', 'iron', 'gold', 'crystal']
+
 export function MiningFeatureScene() {
-  const [mineId, setMineId] = useState<'copper' | 'iron'>('copper')
+  const [mineId, setMineId] = useState<MineId>('copper')
+  const selectedMine = mines[mineId]
   const identity = useAuthSession()
   const queryClient = useQueryClient()
   const queryKey = ['mining-progress', identity.data?.walletAddress]
@@ -36,7 +90,7 @@ export function MiningFeatureScene() {
       walletAddress,
     }: {
       actionId: string
-      mineId: 'copper' | 'iron'
+      mineId: MineId
       walletAddress: string
     }): Promise<MiningProgress & { walletAddress: string }> => {
       const response = await fetch('/api/mining', {
@@ -133,32 +187,35 @@ export function MiningFeatureScene() {
     buyIronPickaxe.isError && buyIronPickaxe.variables?.walletAddress === identity.data?.walletAddress
   const xp = progress.data?.xp ?? 0
   const level = Math.floor(xp / 100) + 1
-  const ironUnlocked = level >= 2
-  const health = mineId === 'copper' ? (progress.data?.health ?? 10) : (progress.data?.ironHealth ?? 20)
-  const maxHealth = mineId === 'copper' ? 10 : 20
-  const rock =
-    health <= maxHealth / 2
-      ? 'copper-rock-heavily-cracked.png'
-      : health <= maxHealth * 0.8
-        ? 'copper-rock-lightly-cracked.png'
-        : 'copper-rock-intact.png'
+  const health = progress.data?.[selectedMine.healthKey] ?? selectedMine.maxHealth
+  const rockState =
+    health <= selectedMine.maxHealth / 2
+      ? 'heavily-cracked'
+      : health <= selectedMine.maxHealth * 0.8
+        ? 'lightly-cracked'
+        : 'intact'
+  const hasOre =
+    (progress.data?.copper ?? 0) > 0 ||
+    (progress.data?.crystalOre ?? 0) > 0 ||
+    (progress.data?.goldOre ?? 0) > 0 ||
+    (progress.data?.ironOre ?? 0) > 0
   return (
     <section
-      aria-label={mineId === 'copper' ? 'Copper Cave' : 'Iron Mine'}
+      aria-label={selectedMine.label}
       className="relative mx-auto aspect-[720/1280] w-full max-w-sm overflow-hidden rounded-xl"
     >
       <img
         alt=""
         className="absolute inset-0 size-full [image-rendering:pixelated]"
         height={1280}
-        src="/copper-cave/cave-background.png"
+        src={selectedMine.background}
         width={720}
       />
       <h2 className="absolute inset-x-0 top-[8%] text-center text-2xl font-bold text-amber-100">
-        {mineId === 'copper' ? 'Copper Cave' : 'Iron Mine'}
+        {selectedMine.label}
       </h2>
       <button
-        aria-label={mineId === 'copper' ? 'Mine copper rock' : 'Mine iron rock'}
+        aria-label={`Mine ${selectedMine.resource} rock`}
         className="absolute left-[23.33%] top-[46.56%] w-[53.33%] rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-100 disabled:cursor-not-allowed"
         disabled={
           !identity.data ||
@@ -167,7 +224,7 @@ export function MiningFeatureScene() {
           progress.isError ||
           mine.isPending ||
           failedHit ||
-          (mineId === 'iron' && !ironUnlocked)
+          level < selectedMine.minLevel
         }
         onClick={() =>
           identity.data &&
@@ -180,7 +237,7 @@ export function MiningFeatureScene() {
           className="pointer-events-none w-full [image-rendering:pixelated]"
           draggable={false}
           height={384}
-          src={`/copper-cave/${rock}`}
+          src={`/${selectedMine.assetDirectory}/${selectedMine.rockPrefix}-${rockState}.png`}
           width={384}
         />
       </button>
@@ -193,24 +250,23 @@ export function MiningFeatureScene() {
         width={256}
       />
       <div className="absolute inset-x-4 top-[16%] rounded-lg bg-black/70 p-3 text-center text-sm text-amber-100">
-        <div className="mb-2 flex justify-center gap-2" aria-label="Select mine">
-          <button
-            aria-pressed={mineId === 'copper'}
-            className="rounded-md border border-amber-100/60 px-3 py-1 aria-pressed:bg-amber-100 aria-pressed:text-black"
-            onClick={() => setMineId('copper')}
-            type="button"
-          >
-            Copper Cave
-          </button>
-          <button
-            aria-pressed={mineId === 'iron'}
-            className="rounded-md border border-amber-100/60 px-3 py-1 aria-pressed:bg-amber-100 aria-pressed:text-black disabled:opacity-50"
-            disabled={!ironUnlocked}
-            onClick={() => setMineId('iron')}
-            type="button"
-          >
-            {ironUnlocked ? 'Iron Mine' : 'Iron Mine · Level 2'}
-          </button>
+        <div className="mb-2 grid grid-cols-2 gap-1.5" role="group" aria-label="Select mine">
+          {mineOrder.map((id) => {
+            const mine = mines[id]
+            const unlocked = level >= mine.minLevel
+            return (
+              <button
+                key={id}
+                aria-pressed={mineId === id}
+                className="min-w-0 rounded-md border border-amber-100/60 px-2 py-1 text-xs aria-pressed:bg-amber-100 aria-pressed:text-black disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                disabled={!unlocked}
+                onClick={() => setMineId(id)}
+                type="button"
+              >
+                {unlocked ? mine.label : `${mine.label} · Level ${mine.minLevel}`}
+              </button>
+            )
+          })}
         </div>
         <p aria-live="polite">
           {identity.isPending
@@ -223,7 +279,7 @@ export function MiningFeatureScene() {
                   ? 'Loading saved progress…'
                   : progress.error
                     ? 'Could not load your progress.'
-                    : `Health: ${health}/${maxHealth} · Copper: ${progress.data?.copper ?? 0} · Iron: ${progress.data?.ironOre ?? 0} · Coins: ${progress.data?.coins ?? 0}`}
+                    : `Health: ${health}/${selectedMine.maxHealth}`}
           {mine.isPending && <span role="status"> · Saving hit…</span>}
           {sell.isPending && <span role="status"> · Selling ore…</span>}
           {buyIronPickaxe.isPending && <span role="status"> · Buying Iron Pickaxe…</span>}
@@ -231,6 +287,12 @@ export function MiningFeatureScene() {
         {progress.data && (
           <p>
             Level {level} · {xp % 100}/100 XP to next level
+          </p>
+        )}
+        {progress.data && (
+          <p>
+            Copper: {progress.data.copper} · Crystal: {progress.data.crystalOre} · Gold: {progress.data.goldOre} · Iron:{' '}
+            {progress.data.ironOre} · Coins: {progress.data.coins}
           </p>
         )}
         <p>
@@ -243,7 +305,7 @@ export function MiningFeatureScene() {
             identity.isFetching ||
             progress.isPending ||
             progress.isError ||
-            ((progress.data?.copper ?? 0) === 0 && (progress.data?.ironOre ?? 0) === 0) ||
+            !hasOre ||
             sell.isPending ||
             failedSale
           }

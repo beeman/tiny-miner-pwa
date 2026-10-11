@@ -131,6 +131,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   const initial = {
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -154,6 +158,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     expect(await response.json()).toEqual({
       coins: 0,
       copper: hit === 4 ? 2 : 0,
+      crystalHealth: 40,
+      crystalOre: 0,
+      goldHealth: 30,
+      goldOre: 0,
       health: hit === 4 ? 10 : 10 - (hit + 1) * 2,
       ironHealth: 20,
       ironOre: 0,
@@ -165,6 +173,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   const broken = {
     coins: 0,
     copper: 2,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -177,6 +189,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect(await (await request('/api/mining', { actionId: actionIds[0] }, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 8,
     ironHealth: 20,
     ironOre: 0,
@@ -195,6 +211,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
     expect(await response.json()).toEqual({
       coins: 0,
       copper: 2,
+      crystalHealth: 40,
+      crystalOre: 0,
+      goldHealth: 30,
+      goldOre: 0,
       health: 8,
       ironHealth: 20,
       ironOre: 0,
@@ -210,6 +230,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   const saved = {
     coins: 0,
     copper: 4,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 8,
     ironHealth: 20,
     ironOre: 0,
@@ -222,6 +246,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect(await (await request('/api/mining', { actionId }, secondCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 8,
     ironHealth: 20,
     ironOre: 0,
@@ -238,6 +266,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   const beforeFailure = {
     coins: 0,
     copper: 4,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 2,
     ironHealth: 20,
     ironOre: 0,
@@ -255,6 +287,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect(await (await request('/api/mining', { actionId: failedId }, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 6,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -269,6 +305,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 6,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -280,6 +320,10 @@ test('rock damage and rewards are atomic, idempotent, isolated by wallet, persis
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 8,
     ironHealth: 20,
     ironOre: 0,
@@ -310,6 +354,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   const beforeSale = {
     coins: 0,
     copper: 2,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -329,6 +377,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   const sold = {
     coins: 10,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -357,6 +409,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     {
       coins: 10,
       copper: 2,
+      crystalHealth: 40,
+      crystalOre: 0,
+      goldHealth: 30,
+      goldOre: 0,
       health: 10,
       ironHealth: 20,
       ironOre: 0,
@@ -367,6 +423,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     {
       coins: 20,
       copper: 0,
+      crystalHealth: 40,
+      crystalOre: 0,
+      goldHealth: 30,
+      goldOre: 0,
       health: 10,
       ironHealth: 20,
       ironOre: 0,
@@ -382,6 +442,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
     {
       coins: 10,
       copper: 0,
+      crystalHealth: 40,
+      crystalOre: 0,
+      goldHealth: 30,
+      goldOre: 0,
       health: 2,
       ironHealth: 20,
       ironOre: 0,
@@ -398,6 +462,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   const secondBeforeSale = {
     coins: 0,
     copper: 2,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -408,6 +476,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual(secondBeforeSale)
   expect(await (await request('/api/mining/sell', { actionId: saleId }, secondCookie)).json()).toEqual({
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     coins: 10,
     health: 10,
     ironHealth: 20,
@@ -426,6 +498,10 @@ test('selling copper is atomic, idempotent, isolated, concurrent with mining, an
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(afterConcurrentActions)
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     coins: 10,
     health: 10,
     ironHealth: 20,
@@ -449,6 +525,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -487,6 +567,10 @@ test('iron pickaxe purchases are server-priced, idempotent, isolated, and persis
   const purchase = {
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 6,
     ironHealth: 20,
     ironOre: 0,
@@ -549,6 +633,10 @@ test('Iron Mine is locked until level two and preserves both mine states through
   expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -602,6 +690,10 @@ test('Iron Mine is locked until level two and preserves both mine states through
   expect(await (await request('/api/mining', undefined, secondCookie)).json()).toEqual({
     coins: 0,
     copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
     health: 10,
     ironHealth: 20,
     ironOre: 0,
@@ -609,4 +701,170 @@ test('Iron Mine is locked until level two and preserves both mine states through
     revision: 0,
     xp: 0,
   })
+})
+
+test('Gold Mine and Crystal Cavern unlock by level, preserve damage, reward ores, and sell at server prices', async () => {
+  const first = await generateKeyPairSigner()
+  const second = await generateKeyPairSigner()
+  const firstCookie = await login(first)
+  const secondCookie = await login(second)
+  const reusedActionId = crypto.randomUUID()
+  const hit = (mineId: 'copper' | 'crystal' | 'gold' | 'iron', cookie = firstCookie, actionId = crypto.randomUUID()) =>
+    request('/api/mining', { actionId, mineId }, cookie)
+
+  expect((await request('/api/mining')).status).toBe(401)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual({
+    coins: 0,
+    copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
+    health: 10,
+    ironHealth: 20,
+    ironOre: 0,
+    ironPickaxeOwned: false,
+    revision: 0,
+    xp: 0,
+  })
+  for (const mineId of ['gold', 'crystal'] as const) {
+    expect(
+      (await request('/api/mining', { actionId: reusedActionId, level: 99, mineId, xp: 999999 }, firstCookie)).status,
+    ).toBe(403)
+  }
+
+  for (let count = 0; count < 50; count++) {
+    const response = await hit('copper', firstCookie, count === 0 ? reusedActionId : undefined)
+    expect(response.status).toBe(200)
+  }
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    copper: 20,
+    crystalHealth: 40,
+    goldHealth: 30,
+    health: 10,
+    xp: 100,
+  })
+  expect((await hit('gold', firstCookie, reusedActionId)).status).toBe(403)
+  expect((await hit('crystal', firstCookie, reusedActionId)).status).toBe(403)
+
+  await hit('copper')
+  const ironHit = await hit('iron', firstCookie, reusedActionId)
+  expect(ironHit.status).toBe(200)
+  const savedIronHit = await ironHit.json()
+  expect(await (await hit('iron', firstCookie, reusedActionId)).json()).toEqual(savedIronHit)
+  expect(savedIronHit).toMatchObject({ health: 8, ironHealth: 18, xp: 100 })
+
+  for (let count = 0; count < 50; count++) expect((await hit('copper')).status).toBe(200)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    copper: 40,
+    health: 8,
+    xp: 200,
+  })
+  expect((await hit('crystal', firstCookie, reusedActionId)).status).toBe(403)
+  const firstGoldHit = await hit('gold', firstCookie, reusedActionId)
+  expect(firstGoldHit.status).toBe(200)
+  const savedGoldHit = await firstGoldHit.json()
+  expect(await (await hit('gold', firstCookie, reusedActionId)).json()).toEqual(savedGoldHit)
+  expect(savedGoldHit).toMatchObject({ goldHealth: 28, goldOre: 0, xp: 200 })
+  await hit('iron')
+  for (let count = 0; count < 14; count++) expect((await hit('gold')).status).toBe(200)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    goldHealth: 30,
+    goldOre: 2,
+    xp: 210,
+  })
+
+  for (let count = 0; count < 45; count++) expect((await hit('copper')).status).toBe(200)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    copper: 58,
+    crystalHealth: 40,
+    goldHealth: 30,
+    health: 8,
+    ironHealth: 16,
+    xp: 300,
+  })
+  const firstCrystalHit = await hit('crystal', firstCookie, reusedActionId)
+  expect(firstCrystalHit.status).toBe(200)
+  const savedCrystalHit = await firstCrystalHit.json()
+  expect(await (await hit('crystal', firstCookie, reusedActionId)).json()).toEqual(savedCrystalHit)
+  expect(savedCrystalHit).toMatchObject({ crystalHealth: 38, crystalOre: 0, xp: 300 })
+  await hit('gold')
+  await hit('gold')
+  const unfinishedProgress = await (await request('/api/mining', undefined, firstCookie)).json()
+  expect(unfinishedProgress).toMatchObject({
+    copper: 58,
+    crystalHealth: 38,
+    crystalOre: 0,
+    goldHealth: 26,
+    goldOre: 2,
+    health: 8,
+    ironHealth: 16,
+    ironOre: 0,
+    xp: 300,
+  })
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(unfinishedProgress)
+
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    goldHealth: 26,
+    goldOre: 2,
+    xp: 300,
+  })
+  for (let count = 0; count < 19; count++) expect((await hit('crystal')).status).toBe(200)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    crystalHealth: 40,
+    crystalOre: 2,
+    xp: 310,
+  })
+  for (let count = 0; count < 8; count++) expect((await hit('iron')).status).toBe(200)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toMatchObject({
+    ironHealth: 20,
+    ironOre: 2,
+    xp: 320,
+  })
+
+  const saleRequest = {
+    actionId: crypto.randomUUID(),
+    copperPrice: 1,
+    crystalPrice: 1,
+    goldPrice: 1,
+    ironPrice: 1,
+    price: 1,
+  }
+  const soldResponse = await request('/api/mining/sell', saleRequest, firstCookie)
+  expect(soldResponse.status).toBe(200)
+  const sold = await soldResponse.json()
+  expect(sold).toMatchObject({
+    coins: 460,
+    copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 26,
+    goldOre: 0,
+    health: 8,
+    ironHealth: 20,
+    ironOre: 0,
+    xp: 320,
+  })
+  expect(await (await request('/api/mining/sell', saleRequest, firstCookie)).json()).toEqual(sold)
+  expect((await hit('crystal', secondCookie, reusedActionId)).status).toBe(403)
+  expect(await (await request('/api/mining', undefined, secondCookie)).json()).toMatchObject({
+    copper: 0,
+    crystalHealth: 40,
+    crystalOre: 0,
+    goldHealth: 30,
+    goldOre: 0,
+    health: 10,
+    ironHealth: 20,
+    ironOre: 0,
+    xp: 0,
+  })
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(sold)
 })
