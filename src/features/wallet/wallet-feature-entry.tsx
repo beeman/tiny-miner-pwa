@@ -2,6 +2,7 @@ import { useConnectedWallet } from '@solana/kit-plugin-wallet/react'
 import { PickaxeIcon } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
+import { AuthFeatureSession } from '@/features/auth/auth-feature-session'
 import { useAppClient } from '@/features/core/data-access/use-app-client'
 
 import { WalletUiSeekerButton } from './ui/wallet-ui-seeker-button'
@@ -25,6 +26,7 @@ export function WalletFeatureEntry() {
             ? `Wallet connected: ${formatAddress(connected.account.address)}`
             : 'Use Connect wallet above to begin.'}
         </p>
+        <AuthFeatureSession account={connected?.account} />
         {!connected && <WalletUiSeekerButton variant="connect" />}
         <p className="text-muted-foreground text-xs">Web first · Portrait play · Gameplay coming soon</p>
       </CardContent>

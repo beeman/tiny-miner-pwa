@@ -125,3 +125,34 @@ settings are where an app's authorization is revoked for good.
 - [Solana Mobile documentation](https://docs.solanamobile.com/): Learn how to reach wallets on Android.
 - [shadcn/ui documentation](https://ui.shadcn.com/docs): Learn how to add and customize components.
 - [Vite documentation](https://vite.dev/guide/): Learn how to configure the build.
+
+## Tiny Miner server sessions
+
+This block follows the wallet authentication flow in
+[templates PR #8](https://github.com/solana-mobile/templates/pull/8): Better Auth
+with `better-auth-solana`, a Drizzle SQLite schema, and a Hono auth handler. Wallet
+connection and server authentication are separate. Better Auth is pinned to 1.6.0
+because the Solana plugin uses an internal adapter method removed in Better Auth
+1.7.7. Signing out revokes the server
+session; the wallet can stay connected.
+
+1. Install with `bun install`.
+2. Copy `.env.example` to `.env`. Set `BETTER_AUTH_SECRET` to a random secret of at
+   least 32 characters (for example, generate it locally with `openssl rand -hex 32`).
+3. Run `bun run dev:server` and `bun run dev --host 127.0.0.1` in separate terminals.
+4. Open `http://127.0.0.1:5173`, connect a wallet with message-signing support, and
+   choose **Sign in to Tiny Miner**. Approve the wallet signature locally.
+
+The server applies the checked-in migration on startup. Its default database is
+`tiny-miner.sqlite`, which is ignored by Git. Vite proxies `/api` to the local Hono
+server on port 3001; session cookies are HttpOnly and requests stay on the frontend
+origin. `GET /api/me` returns only the authenticated wallet address, or HTTP 401
+without a valid session. No client-supplied address is used to authorize that route.
+
+For deployment, serve the frontend and `/api` on the same HTTPS origin and set
+`BETTER_AUTH_URL` accordingly. The development proxy is not a production server.
+No Android or webshell integration is included in this block.
+
+Checks: `bun run typecheck:server`, `bun test server`, `bun run lint:check`,
+`bun run format:check`, and `bun run build`. Backend tests use isolated SQLite and
+real Ed25519 signatures; they never use a user's wallet or funds.

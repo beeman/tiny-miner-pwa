@@ -27,3 +27,8 @@ yarn-error.*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# local session database
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
