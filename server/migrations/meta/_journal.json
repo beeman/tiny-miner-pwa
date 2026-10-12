@@ -57,6 +57,13 @@
       "when": 1791758643685,
       "tag": "0007_pickaxe_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791766993200,
+      "tag": "0008_seeker_pickaxe_purchase_intent",
+      "breakpoints": true
     }
   ]
 }

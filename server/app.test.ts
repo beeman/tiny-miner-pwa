@@ -10,10 +10,12 @@ import { createApp } from './app'
 
 const origin = 'http://localhost:5173'
 const secret = 'test-only-session-secret-at-least-32-characters'
+const testUsdcMint = (await generateKeyPairSigner()).address
+const testUsdcRecipient = (await generateKeyPairSigner()).address
 const directory = mkdtempSync(join(tmpdir(), 'tiny-miner-auth-'))
 const path = join(directory, 'test.sqlite')
 let database = new Database(path)
-let app = createApp({ database, origin, secret })
+let app = createApp({ database, devnetUsdcMint: testUsdcMint, devnetUsdcRecipient: testUsdcRecipient, origin, secret })
 let signer: Awaited<ReturnType<typeof generateKeyPairSigner>>
 
 beforeAll(async () => {
@@ -1082,4 +1084,106 @@ test('Steel and Golden Pickaxes are server-priced, equip only when owned, preser
     equippedPickaxe: 'golden',
     goldenPickaxeOwned: true,
   })
+})
+
+test('Seeker Pickaxe purchase intents use fixed Devnet terms, isolate players, persist, and reuse unresolved intents', async () => {
+  app = createApp({ database, devnetUsdcMint: testUsdcMint, devnetUsdcRecipient: testUsdcRecipient, origin, secret })
+  const first = await generateKeyPairSigner()
+  const second = await generateKeyPairSigner()
+  const third = await generateKeyPairSigner()
+  const firstCookie = await login(first)
+  const secondCookie = await login(second)
+  const thirdCookie = await login(third)
+  const offerPath = '/api/purchases/seeker-pickaxe'
+  const intentPath = '/api/purchases/seeker-pickaxe/intent'
+
+  expect((await request(offerPath)).status).toBe(401)
+  expect((await request(intentPath, {}, undefined)).status).toBe(401)
+  const initialOffer = await (await request(offerPath, undefined, firstCookie)).json()
+  expect(initialOffer).toEqual({
+    configurationIssues: [],
+    intent: null,
+    offer: {
+      amount: 1_000_000,
+      decimals: 6,
+      itemId: 'seeker-pickaxe',
+      itemName: 'Seeker Pickaxe',
+      mint: testUsdcMint,
+      network: 'solana:devnet',
+      recipient: testUsdcRecipient,
+      symbol: 'USDC',
+    },
+  })
+
+  const progressBeforeIntent = await (await request('/api/mining', undefined, firstCookie)).json()
+  const forgedTerms = {
+    amount: 1,
+    itemId: 'golden-pickaxe',
+    mint: first.address,
+    network: 'solana:mainnet',
+    recipient: first.address,
+  }
+  const prepared = await Promise.all(Array.from({ length: 5 }, () => request(intentPath, forgedTerms, firstCookie)))
+  expect(prepared.map((response) => response.status).sort()).toEqual([200, 200, 200, 200, 201])
+  const preparedBodies = await Promise.all(prepared.map((response) => response.json()))
+  const firstIntent = preparedBodies[0]
+  expect(firstIntent.intent).toEqual({
+    amount: 1_000_000,
+    itemId: 'seeker-pickaxe',
+    mint: testUsdcMint,
+    network: 'solana:devnet',
+    recipient: testUsdcRecipient,
+    reference: expect.any(String),
+    status: 'unresolved',
+  })
+  expect(new Set(preparedBodies.map(({ intent }) => intent.reference)).size).toBe(1)
+  expect(await (await request('/api/mining', undefined, firstCookie)).json()).toEqual(progressBeforeIntent)
+  expect(await (await request(offerPath, undefined, firstCookie)).json()).toMatchObject({ intent: firstIntent.intent })
+
+  expect(await (await request(offerPath, undefined, secondCookie)).json()).toMatchObject({ intent: null })
+  const secondIntent = await (await request(intentPath, {}, secondCookie)).json()
+  expect(secondIntent.intent).toMatchObject({
+    amount: 1_000_000,
+    itemId: 'seeker-pickaxe',
+    mint: testUsdcMint,
+    network: 'solana:devnet',
+    recipient: testUsdcRecipient,
+    status: 'unresolved',
+  })
+  expect(secondIntent.intent.reference).not.toBe(firstIntent.intent.reference)
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, devnetUsdcMint: testUsdcMint, devnetUsdcRecipient: testUsdcRecipient, origin, secret })
+  expect(await (await request(offerPath, undefined, firstCookie)).json()).toMatchObject({ intent: firstIntent.intent })
+  const reused = await request(intentPath, {}, firstCookie)
+  expect(reused.status).toBe(200)
+  expect((await reused.json()).intent).toEqual(firstIntent.intent)
+
+  database.close()
+  database = new Database(path)
+  app = createApp({ database, origin, secret })
+  expect(await (await request(offerPath, undefined, thirdCookie)).json()).toEqual({
+    configurationIssues: ['DEVNET_USDC_MINT', 'DEVNET_USDC_RECIPIENT'],
+    intent: null,
+    offer: {
+      amount: 1_000_000,
+      decimals: 6,
+      itemId: 'seeker-pickaxe',
+      itemName: 'Seeker Pickaxe',
+      mint: null,
+      network: 'solana:devnet',
+      recipient: null,
+      symbol: 'USDC',
+    },
+  })
+  const unavailable = await request(intentPath, {}, thirdCookie)
+  expect(unavailable.status).toBe(503)
+  expect(await unavailable.json()).toEqual({
+    error: 'Purchase configuration is incomplete',
+    configurationIssues: ['DEVNET_USDC_MINT', 'DEVNET_USDC_RECIPIENT'],
+  })
+  const existingIntent = await request(intentPath, {}, firstCookie)
+  expect(existingIntent.status).toBe(200)
+  expect((await existingIntent.json()).intent).toEqual(firstIntent.intent)
 })

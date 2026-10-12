@@ -1,4 +1,5 @@
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
 
 export const user = sqliteTable('user', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
@@ -105,4 +106,25 @@ export const miningAction = sqliteTable(
     xp: integer('xp').notNull(),
   },
   (table) => [primaryKey({ columns: [table.actionId, table.userId] })],
+)
+
+export const premiumPurchaseIntent = sqliteTable(
+  'premium_purchase_intent',
+  {
+    amount: integer('amount').notNull(),
+    itemId: text('item_id').notNull(),
+    mint: text('mint').notNull(),
+    network: text('network').notNull(),
+    recipient: text('recipient').notNull(),
+    reference: text('reference').primaryKey(),
+    status: text('status').notNull().default('unresolved'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('premium_purchase_intent_unresolved')
+      .on(table.userId, table.itemId)
+      .where(sql`${table.status} = 'unresolved'`),
+  ],
 )

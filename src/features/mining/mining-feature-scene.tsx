@@ -23,6 +23,29 @@ type MiningProgress = {
 
 type PickaxeId = 'wooden' | 'iron' | 'steel' | 'golden'
 
+type SeekerPickaxePurchase = {
+  configurationIssues: string[]
+  intent: null | {
+    amount: number
+    itemId: string
+    mint: string
+    network: string
+    recipient: string
+    reference: string
+    status: string
+  }
+  offer: {
+    amount: number
+    decimals: number
+    itemId: string
+    itemName: string
+    mint: string | null
+    network: string
+    recipient: string | null
+    symbol: string
+  }
+}
+
 const pickaxes: Record<PickaxeId, { damage: number; label: string; price: number }> = {
   golden: { damage: 8, label: 'Golden Pickaxe', price: 300 },
   iron: { damage: 3, label: 'Iron Pickaxe', price: 20 },
@@ -93,6 +116,34 @@ export function MiningFeatureScene() {
       return response.json()
     },
     queryKey,
+    retry: false,
+  })
+  const seekerOffer = useQuery({
+    enabled: !!identity.data,
+    queryFn: async ({ signal }): Promise<SeekerPickaxePurchase> => {
+      const response = await fetch('/api/purchases/seeker-pickaxe', { signal })
+      if (!response.ok) throw new Error('Could not load the Seeker Pickaxe offer')
+      return response.json()
+    },
+    queryKey: ['seeker-pickaxe-purchase', identity.data?.walletAddress],
+    retry: false,
+  })
+  const prepareSeekerPurchase = useMutation({
+    mutationFn: async (walletAddress: string): Promise<SeekerPickaxePurchase['intent']> => {
+      const response = await fetch('/api/purchases/seeker-pickaxe/intent', {
+        body: '{}',
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      })
+      if (response.status === 401) {
+        await queryClient.invalidateQueries({ queryKey: ['auth-session'] })
+        throw new Error('Your session expired. Sign in again.')
+      }
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error ?? 'Could not prepare purchase details')
+      await queryClient.invalidateQueries({ queryKey: ['seeker-pickaxe-purchase', walletAddress] })
+      return result.intent
+    },
     retry: false,
   })
   const mine = useMutation({
@@ -444,6 +495,61 @@ export function MiningFeatureScene() {
           </>
         )}
         {failedPickaxeEquip && <p role="alert">{equipPickaxe.error?.message}</p>}
+        <div className="mt-3 border-t border-amber-100/30 pt-3">
+          <p className="font-semibold">Seeker Pickaxe · Devnet test purchase</p>
+          <p>1 test USDC · permanent ownership · 10 damage</p>
+          {seekerOffer.isPending && <p role="status">Loading purchase details…</p>}
+          {seekerOffer.data?.intent && (
+            <dl className="mt-2 break-all text-xs">
+              <div>
+                <dt className="inline font-semibold">Network: </dt>
+                <dd className="inline">{seekerOffer.data.intent.network}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold">USDC mint: </dt>
+                <dd className="inline">{seekerOffer.data.intent.mint}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold">Recipient: </dt>
+                <dd className="inline">{seekerOffer.data.intent.recipient}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold">Purchase reference: </dt>
+                <dd className="inline">{seekerOffer.data.intent.reference}</dd>
+              </div>
+            </dl>
+          )}
+          {seekerOffer.data?.configurationIssues.length ? (
+            <p role="status">
+              Purchase setup requires server configuration: {seekerOffer.data.configurationIssues.join(', ')}
+            </p>
+          ) : null}
+          {seekerOffer.isError && <p role="alert">{seekerOffer.error.message}</p>}
+          <button
+            className="mt-2 rounded-md border border-amber-100/60 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={
+              !identity.data ||
+              !seekerOffer.data ||
+              seekerOffer.isError ||
+              seekerOffer.isPending ||
+              seekerOffer.data.configurationIssues.length > 0 ||
+              prepareSeekerPurchase.isPending
+            }
+            onClick={() => identity.data && prepareSeekerPurchase.mutate(identity.data.walletAddress)}
+            type="button"
+          >
+            {seekerOffer.data?.intent ? 'Reuse prepared purchase' : 'Prepare purchase details'}
+          </button>
+          <button
+            className="ml-2 mt-2 rounded-md border border-amber-100/30 px-3 py-1 opacity-50"
+            disabled
+            type="button"
+          >
+            Payment unavailable until next block
+          </button>
+          {prepareSeekerPurchase.isError && <p role="alert">{prepareSeekerPurchase.error.message}</p>}
+          {prepareSeekerPurchase.isPending && <p role="status">Preparing purchase details…</p>}
+        </div>
         {failedSale && (
           <>
             <p role="alert">{sell.error?.message}</p>
