@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { siws } from 'better-auth-solana'
 import { and, eq, sql } from 'drizzle-orm'
+import { isAddress } from '@solana/kit'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Hono } from 'hono'
@@ -10,7 +11,19 @@ import { fileURLToPath } from 'node:url'
 
 import * as schema from './schema'
 
-export function createApp({ database, origin, secret }: { database: Database; origin: string; secret: string }) {
+export function createApp({
+  database,
+  devnetUsdcMint,
+  devnetUsdcRecipient,
+  origin,
+  secret,
+}: {
+  database: Database
+  devnetUsdcMint?: string
+  devnetUsdcRecipient?: string
+  origin: string
+  secret: string
+}) {
   const db = drizzle(database, { schema })
   database.exec('PRAGMA foreign_keys = ON')
   migrate(db, { migrationsFolder: fileURLToPath(new URL('./migrations', import.meta.url)) })
@@ -43,6 +56,106 @@ export function createApp({ database, origin, secret }: { database: Database; or
       .get()
     if (!wallet) return c.json({ error: 'Wallet identity required' }, 403)
     return c.json({ walletAddress: wallet.address })
+  })
+  const purchaseOffer = {
+    amount: 1_000_000,
+    decimals: 6,
+    itemId: 'seeker-pickaxe',
+    itemName: 'Seeker Pickaxe',
+    network: 'solana:devnet',
+    symbol: 'USDC',
+  } as const
+  const configuredPurchaseTerms = {
+    mint: devnetUsdcMint && isAddress(devnetUsdcMint) ? devnetUsdcMint : null,
+    recipient: devnetUsdcRecipient && isAddress(devnetUsdcRecipient) ? devnetUsdcRecipient : null,
+  }
+  const configurationIssues = [
+    ...(configuredPurchaseTerms.mint ? [] : ['DEVNET_USDC_MINT']),
+    ...(configuredPurchaseTerms.recipient ? [] : ['DEVNET_USDC_RECIPIENT']),
+  ]
+  app.get('/api/purchases/seeker-pickaxe', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const intent = db
+      .select({
+        amount: schema.premiumPurchaseIntent.amount,
+        itemId: schema.premiumPurchaseIntent.itemId,
+        mint: schema.premiumPurchaseIntent.mint,
+        network: schema.premiumPurchaseIntent.network,
+        recipient: schema.premiumPurchaseIntent.recipient,
+        reference: schema.premiumPurchaseIntent.reference,
+        status: schema.premiumPurchaseIntent.status,
+      })
+      .from(schema.premiumPurchaseIntent)
+      .where(
+        and(
+          eq(schema.premiumPurchaseIntent.userId, session.user.id),
+          eq(schema.premiumPurchaseIntent.itemId, purchaseOffer.itemId),
+          eq(schema.premiumPurchaseIntent.status, 'unresolved'),
+        ),
+      )
+      .get()
+    return c.json({
+      configurationIssues,
+      intent: intent ?? null,
+      offer: {
+        ...purchaseOffer,
+        mint: configurationIssues.includes('DEVNET_USDC_MINT') ? null : configuredPurchaseTerms.mint,
+        recipient: configurationIssues.includes('DEVNET_USDC_RECIPIENT') ? null : configuredPurchaseTerms.recipient,
+      },
+    })
+  })
+  app.post('/api/purchases/seeker-pickaxe/intent', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const result = db.transaction(
+      (tx) => {
+        const existing = tx
+          .select()
+          .from(schema.premiumPurchaseIntent)
+          .where(
+            and(
+              eq(schema.premiumPurchaseIntent.userId, session.user.id),
+              eq(schema.premiumPurchaseIntent.itemId, purchaseOffer.itemId),
+              eq(schema.premiumPurchaseIntent.status, 'unresolved'),
+            ),
+          )
+          .get()
+        if (existing) return { created: false, intent: existing }
+        if (!configuredPurchaseTerms.mint || !configuredPurchaseTerms.recipient)
+          return { configurationMissing: true as const }
+        const intent = {
+          amount: purchaseOffer.amount,
+          itemId: purchaseOffer.itemId,
+          mint: configuredPurchaseTerms.mint,
+          network: purchaseOffer.network,
+          recipient: configuredPurchaseTerms.recipient,
+          reference: crypto.randomUUID(),
+          status: 'unresolved',
+          userId: session.user.id,
+        }
+        tx.insert(schema.premiumPurchaseIntent).values(intent).run()
+        return { created: true, intent }
+      },
+      { behavior: 'immediate' },
+    )
+    if ('configurationMissing' in result) {
+      return c.json({ error: 'Purchase configuration is incomplete', configurationIssues }, 503)
+    }
+    return c.json(
+      {
+        intent: {
+          amount: result.intent.amount,
+          itemId: result.intent.itemId,
+          mint: result.intent.mint,
+          network: result.intent.network,
+          recipient: result.intent.recipient,
+          reference: result.intent.reference,
+          status: result.intent.status,
+        },
+      },
+      result.created ? 201 : 200,
+    )
   })
   app.on(['GET', 'POST'], '/api/mining', async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers })
