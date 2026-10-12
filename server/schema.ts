@@ -71,7 +71,10 @@ export const miningProgress = sqliteTable('mining_counter', {
   ironHealth: integer('iron_health').notNull().default(20),
   ironOre: integer('iron_ore').notNull().default(0),
   ironPickaxeOwned: integer('iron_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
+  goldenPickaxeOwned: integer('golden_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
   revision: integer('count').notNull().default(0),
+  equippedPickaxe: text('equipped_pickaxe').notNull().default('wooden'),
+  steelPickaxeOwned: integer('steel_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
   userId: text('user_id')
     .primaryKey()
     .references(() => user.id, { onDelete: 'cascade' }),
@@ -92,7 +95,10 @@ export const miningAction = sqliteTable(
     ironHealth: integer('iron_health').notNull().default(20),
     ironOre: integer('iron_ore').notNull().default(0),
     ironPickaxeOwned: integer('iron_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
+    goldenPickaxeOwned: integer('golden_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
     revision: integer('revision').notNull(),
+    equippedPickaxe: text('equipped_pickaxe').notNull().default('wooden'),
+    steelPickaxeOwned: integer('steel_pickaxe_owned', { mode: 'boolean' }).notNull().default(false),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

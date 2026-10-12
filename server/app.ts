@@ -53,13 +53,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
       copper: schema.miningProgress.copper,
       crystalHealth: schema.miningProgress.crystalHealth,
       crystalOre: schema.miningProgress.crystalOre,
+      equippedPickaxe: schema.miningProgress.equippedPickaxe,
       goldHealth: schema.miningProgress.goldHealth,
       goldOre: schema.miningProgress.goldOre,
+      goldenPickaxeOwned: schema.miningProgress.goldenPickaxeOwned,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
       ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
       revision: schema.miningProgress.revision,
+      steelPickaxeOwned: schema.miningProgress.steelPickaxeOwned,
       xp: schema.miningProgress.xp,
     }
     if (c.req.method === 'GET') {
@@ -74,13 +77,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
           copper: 0,
           crystalHealth: 40,
           crystalOre: 0,
+          equippedPickaxe: 'wooden',
           goldHealth: 30,
           goldOre: 0,
+          goldenPickaxeOwned: false,
           health: 10,
           ironHealth: 20,
           ironOre: 0,
           ironPickaxeOwned: false,
           revision: 0,
+          steelPickaxeOwned: false,
           xp: 0,
         },
       )
@@ -104,7 +110,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
       iron: { healthColumn: schema.miningProgress.ironHealth, maxHealth: 20, minLevel: 2 },
     }[mineId]
     const receiptId = mineId === 'copper' ? actionId : `mine:${mineId}:${actionId}`
-    const damage = sql<number>`CASE WHEN ${schema.miningProgress.ironPickaxeOwned} THEN 3 ELSE 2 END`
+    const damage = sql<number>`CASE ${schema.miningProgress.equippedPickaxe} WHEN 'golden' THEN 8 WHEN 'steel' THEN 5 WHEN 'iron' THEN 3 ELSE 2 END`
     const breakingHit = sql`${mine.healthColumn} <= ${damage}`
     const progress = db.transaction(
       (tx) => {
@@ -114,13 +120,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
             copper: schema.miningAction.copper,
             crystalHealth: schema.miningAction.crystalHealth,
             crystalOre: schema.miningAction.crystalOre,
+            equippedPickaxe: schema.miningAction.equippedPickaxe,
             goldHealth: schema.miningAction.goldHealth,
             goldOre: schema.miningAction.goldOre,
+            goldenPickaxeOwned: schema.miningAction.goldenPickaxeOwned,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
             ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
             revision: schema.miningAction.revision,
+            steelPickaxeOwned: schema.miningAction.steelPickaxeOwned,
             xp: schema.miningAction.xp,
           })
           .from(schema.miningAction)
@@ -195,13 +204,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
       copper: schema.miningProgress.copper,
       crystalHealth: schema.miningProgress.crystalHealth,
       crystalOre: schema.miningProgress.crystalOre,
+      equippedPickaxe: schema.miningProgress.equippedPickaxe,
       goldHealth: schema.miningProgress.goldHealth,
       goldOre: schema.miningProgress.goldOre,
+      goldenPickaxeOwned: schema.miningProgress.goldenPickaxeOwned,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
       ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
       revision: schema.miningProgress.revision,
+      steelPickaxeOwned: schema.miningProgress.steelPickaxeOwned,
       xp: schema.miningProgress.xp,
     }
     const progress = db.transaction(
@@ -212,13 +224,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
             copper: schema.miningAction.copper,
             crystalHealth: schema.miningAction.crystalHealth,
             crystalOre: schema.miningAction.crystalOre,
+            equippedPickaxe: schema.miningAction.equippedPickaxe,
             goldHealth: schema.miningAction.goldHealth,
             goldOre: schema.miningAction.goldOre,
+            goldenPickaxeOwned: schema.miningAction.goldenPickaxeOwned,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
             ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
             revision: schema.miningAction.revision,
+            steelPickaxeOwned: schema.miningAction.steelPickaxeOwned,
             xp: schema.miningAction.xp,
           })
           .from(schema.miningAction)
@@ -249,7 +264,7 @@ export function createApp({ database, origin, secret }: { database: Database; or
     )
     return c.json(progress)
   })
-  app.post('/api/mining/upgrade/iron-pickaxe', async (c) => {
+  app.post('/api/mining/upgrade/:pickaxeId', async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers })
     if (!session) return c.json({ error: 'Authentication required' }, 401)
     const userId = session.user.id
@@ -261,19 +276,30 @@ export function createApp({ database, origin, secret }: { database: Database; or
     ) {
       return c.json({ error: 'A UUID actionId is required' }, 400)
     }
-    const receiptId = `upgrade:iron-pickaxe:${actionId}`
+    const pickaxeId = c.req.param('pickaxeId').replace(/-pickaxe$/, '')
+    const pickaxe = {
+      golden: { name: 'Golden Pickaxe', ownedColumn: schema.miningProgress.goldenPickaxeOwned, price: 300 },
+      iron: { name: 'Iron Pickaxe', ownedColumn: schema.miningProgress.ironPickaxeOwned, price: 20 },
+      steel: { name: 'Steel Pickaxe', ownedColumn: schema.miningProgress.steelPickaxeOwned, price: 100 },
+    }[pickaxeId]
+    if (!pickaxe) return c.json({ error: 'A valid pickaxeId is required' }, 400)
+    const equipped = pickaxeId as 'golden' | 'iron' | 'steel'
+    const receiptId = `upgrade:${pickaxeId}-pickaxe:${actionId}`
     const fields = {
       coins: schema.miningProgress.coins,
       copper: schema.miningProgress.copper,
       crystalHealth: schema.miningProgress.crystalHealth,
       crystalOre: schema.miningProgress.crystalOre,
+      equippedPickaxe: schema.miningProgress.equippedPickaxe,
       goldHealth: schema.miningProgress.goldHealth,
       goldOre: schema.miningProgress.goldOre,
+      goldenPickaxeOwned: schema.miningProgress.goldenPickaxeOwned,
       health: schema.miningProgress.health,
       ironHealth: schema.miningProgress.ironHealth,
       ironOre: schema.miningProgress.ironOre,
       ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
       revision: schema.miningProgress.revision,
+      steelPickaxeOwned: schema.miningProgress.steelPickaxeOwned,
       xp: schema.miningProgress.xp,
     }
     const result = db.transaction(
@@ -284,13 +310,16 @@ export function createApp({ database, origin, secret }: { database: Database; or
             copper: schema.miningAction.copper,
             crystalHealth: schema.miningAction.crystalHealth,
             crystalOre: schema.miningAction.crystalOre,
+            equippedPickaxe: schema.miningAction.equippedPickaxe,
             goldHealth: schema.miningAction.goldHealth,
             goldOre: schema.miningAction.goldOre,
+            goldenPickaxeOwned: schema.miningAction.goldenPickaxeOwned,
             health: schema.miningAction.health,
             ironHealth: schema.miningAction.ironHealth,
             ironOre: schema.miningAction.ironOre,
             ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
             revision: schema.miningAction.revision,
+            steelPickaxeOwned: schema.miningAction.steelPickaxeOwned,
             xp: schema.miningAction.xp,
           })
           .from(schema.miningAction)
@@ -299,24 +328,124 @@ export function createApp({ database, origin, secret }: { database: Database; or
         if (recorded) return { progress: recorded }
         tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
         const current = tx
-          .select({ coins: schema.miningProgress.coins, owned: schema.miningProgress.ironPickaxeOwned })
+          .select({ coins: schema.miningProgress.coins, owned: pickaxe.ownedColumn })
           .from(schema.miningProgress)
           .where(eq(schema.miningProgress.userId, userId))
           .get()
         if (!current) throw new Error('Could not load mining progress')
-        if (current.owned) return { error: 'Iron Pickaxe already owned', status: 409 as const }
-        if (current.coins < 20) return { error: 'Not enough coins to buy the Iron Pickaxe', status: 409 as const }
+        if (current.owned) return { error: `${pickaxe.name} already owned`, status: 409 as const }
+        if (current.coins < pickaxe.price)
+          return { error: `Not enough coins to buy the ${pickaxe.name}`, status: 409 as const }
         const saved = tx
           .update(schema.miningProgress)
           .set({
-            coins: sql`${schema.miningProgress.coins} - 20`,
-            ironPickaxeOwned: true,
+            coins: sql`${schema.miningProgress.coins} - ${pickaxe.price}`,
+            [pickaxeId === 'iron'
+              ? 'ironPickaxeOwned'
+              : pickaxeId === 'steel'
+                ? 'steelPickaxeOwned'
+                : 'goldenPickaxeOwned']: true,
+            equippedPickaxe: equipped,
             revision: sql`${schema.miningProgress.revision} + 1`,
           })
           .where(eq(schema.miningProgress.userId, userId))
           .returning(fields)
           .get()
-        if (!saved) throw new Error('Could not save Iron Pickaxe purchase')
+        if (!saved) throw new Error(`Could not save ${pickaxe.name} purchase`)
+        tx.insert(schema.miningAction)
+          .values({ actionId: receiptId, ...saved, userId })
+          .run()
+        return { progress: saved }
+      },
+      { behavior: 'immediate' },
+    )
+    if ('error' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result.progress)
+  })
+  app.post('/api/mining/equip', async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers })
+    if (!session) return c.json({ error: 'Authentication required' }, 401)
+    const userId = session.user.id
+    const body: unknown = await c.req.json().catch(() => null)
+    const actionId = body && typeof body === 'object' && 'actionId' in body ? body.actionId : null
+    const pickaxeId = body && typeof body === 'object' && 'pickaxeId' in body ? body.pickaxeId : null
+    if (
+      typeof actionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actionId)
+    ) {
+      return c.json({ error: 'A UUID actionId is required' }, 400)
+    }
+    if (pickaxeId !== 'wooden' && pickaxeId !== 'iron' && pickaxeId !== 'steel' && pickaxeId !== 'golden') {
+      return c.json({ error: 'A valid pickaxeId is required' }, 400)
+    }
+    const receiptId = `equip:${actionId}`
+    const fields = {
+      coins: schema.miningProgress.coins,
+      copper: schema.miningProgress.copper,
+      crystalHealth: schema.miningProgress.crystalHealth,
+      crystalOre: schema.miningProgress.crystalOre,
+      equippedPickaxe: schema.miningProgress.equippedPickaxe,
+      goldHealth: schema.miningProgress.goldHealth,
+      goldOre: schema.miningProgress.goldOre,
+      goldenPickaxeOwned: schema.miningProgress.goldenPickaxeOwned,
+      health: schema.miningProgress.health,
+      ironHealth: schema.miningProgress.ironHealth,
+      ironOre: schema.miningProgress.ironOre,
+      ironPickaxeOwned: schema.miningProgress.ironPickaxeOwned,
+      revision: schema.miningProgress.revision,
+      steelPickaxeOwned: schema.miningProgress.steelPickaxeOwned,
+      xp: schema.miningProgress.xp,
+    }
+    const actionFields = {
+      coins: schema.miningAction.coins,
+      copper: schema.miningAction.copper,
+      crystalHealth: schema.miningAction.crystalHealth,
+      crystalOre: schema.miningAction.crystalOre,
+      equippedPickaxe: schema.miningAction.equippedPickaxe,
+      goldHealth: schema.miningAction.goldHealth,
+      goldOre: schema.miningAction.goldOre,
+      goldenPickaxeOwned: schema.miningAction.goldenPickaxeOwned,
+      health: schema.miningAction.health,
+      ironHealth: schema.miningAction.ironHealth,
+      ironOre: schema.miningAction.ironOre,
+      ironPickaxeOwned: schema.miningAction.ironPickaxeOwned,
+      revision: schema.miningAction.revision,
+      steelPickaxeOwned: schema.miningAction.steelPickaxeOwned,
+      xp: schema.miningAction.xp,
+    }
+    const result = db.transaction(
+      (tx) => {
+        const recorded = tx
+          .select(actionFields)
+          .from(schema.miningAction)
+          .where(and(eq(schema.miningAction.actionId, receiptId), eq(schema.miningAction.userId, userId)))
+          .get()
+        if (recorded) return { progress: recorded }
+        tx.insert(schema.miningProgress).values({ userId }).onConflictDoNothing().run()
+        const owned = tx
+          .select({
+            golden: schema.miningProgress.goldenPickaxeOwned,
+            iron: schema.miningProgress.ironPickaxeOwned,
+            steel: schema.miningProgress.steelPickaxeOwned,
+          })
+          .from(schema.miningProgress)
+          .where(eq(schema.miningProgress.userId, userId))
+          .get()
+        if (
+          !owned ||
+          (pickaxeId === 'iron' && !owned.iron) ||
+          (pickaxeId === 'steel' && !owned.steel) ||
+          (pickaxeId === 'golden' && !owned.golden)
+        ) {
+          return { error: 'Pickaxe is not owned', status: 409 as const }
+        }
+        const saved = tx
+          .update(schema.miningProgress)
+          .set({ equippedPickaxe: pickaxeId, revision: sql`${schema.miningProgress.revision} + 1` })
+          .where(eq(schema.miningProgress.userId, userId))
+          .returning(fields)
+          .get()
+        if (!saved) throw new Error('Could not equip pickaxe')
         tx.insert(schema.miningAction)
           .values({ actionId: receiptId, ...saved, userId })
           .run()
